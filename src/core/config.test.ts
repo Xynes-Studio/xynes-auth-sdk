@@ -361,7 +361,7 @@ describe("validateAuthConfig", () => {
 
     expect(result.valid).toBe(false);
     expect(result.errors).toContain(
-      "auth.cookieDomain must start with a dot (e.g., .xynes.com)"
+      "auth.cookieDomain must be a valid domain, optionally starting with a dot (e.g., xynes.com or .xynes.com)"
     );
   });
 

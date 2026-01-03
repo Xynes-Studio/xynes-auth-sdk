@@ -173,7 +173,9 @@ export function validateAuthConfig(config: AuthSDKConfig): ValidationResult {
     config.auth.cookieDomain &&
     !isValidCookieDomain(config.auth.cookieDomain)
   ) {
-    errors.push("auth.cookieDomain must start with a dot (e.g., .xynes.com)");
+    errors.push(
+      "auth.cookieDomain must be a valid domain, optionally starting with a dot (e.g., xynes.com or .xynes.com)"
+    );
   }
 
   return {
