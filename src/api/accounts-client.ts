@@ -1,0 +1,129 @@
+import type { BootstrapResponse, Workspace, WorkspaceInvite } from '../types';
+
+/**
+ * Accounts API Client configuration
+ */
+export interface AccountsClientConfig {
+  baseUrl: string;
+  getAccessToken: () => Promise<string | null>;
+}
+
+/**
+ * API error response
+ */
+export interface ApiError {
+  statusCode: number;
+  message: string;
+  error?: string;
+}
+
+/**
+ * Type-safe API client for the accounts service
+ */
+export class AccountsClient {
+  private baseUrl: string;
+  private getAccessToken: () => Promise<string | null>;
+
+  constructor(config: AccountsClientConfig) {
+    this.baseUrl = config.baseUrl.replace(/\/$/, ''); // Remove trailing slash
+    this.getAccessToken = config.getAccessToken;
+  }
+
+  /**
+   * Makes an authenticated request to the API
+   */
+  private async request<T>(
+    path: string,
+    options: RequestInit = {}
+  ): Promise<T> {
+    const token = await this.getAccessToken();
+
+    const headers: HeadersInit = {
+      'Content-Type': 'application/json',
+      ...options.headers,
+    };
+
+    if (token) {
+      (headers as Record<string, string>)['Authorization'] = `Bearer ${token}`;
+    }
+
+    const response = await fetch(`${this.baseUrl}${path}`, {
+      ...options,
+      headers,
+    });
+
+    if (!response.ok) {
+      const error: ApiError = await response.json().catch(() => ({
+        statusCode: response.status,
+        message: response.statusText,
+      }));
+      throw error;
+    }
+
+    // Handle 204 No Content
+    if (response.status === 204) {
+      return undefined as T;
+    }
+
+    return response.json();
+  }
+
+  /**
+   * Bootstrap user - gets user profile and workspaces
+   * Called after successful authentication
+   */
+  async getMe(): Promise<BootstrapResponse> {
+    return this.request<BootstrapResponse>('/me');
+  }
+
+  /**
+   * Get user's workspaces
+   */
+  async getWorkspaces(): Promise<Workspace[]> {
+    return this.request<Workspace[]>('/workspaces');
+  }
+
+  /**
+   * Create a new workspace
+   */
+  async createWorkspace(data: { name: string; slug: string }): Promise<Workspace> {
+    return this.request<Workspace>('/workspaces', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  }
+
+  /**
+   * Resolve an invite token (public - no auth required)
+   */
+  async resolveInvite(token: string): Promise<WorkspaceInvite> {
+    // This is a public endpoint - don't send auth header
+    const response = await fetch(`${this.baseUrl}/workspace-invites/${token}`);
+
+    if (!response.ok) {
+      const error: ApiError = await response.json().catch(() => ({
+        statusCode: response.status,
+        message: response.statusText,
+      }));
+      throw error;
+    }
+
+    return response.json();
+  }
+
+  /**
+   * Accept an invite
+   */
+  async acceptInvite(token: string): Promise<Workspace> {
+    return this.request<Workspace>(`/workspace-invites/${token}/accept`, {
+      method: 'POST',
+    });
+  }
+}
+
+/**
+ * Factory function to create an AccountsClient instance
+ */
+export function createAccountsClient(config: AccountsClientConfig): AccountsClient {
+  return new AccountsClient(config);
+}
