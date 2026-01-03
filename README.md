@@ -372,6 +372,12 @@ pnpm test           # Run all tests
 pnpm test:coverage  # Run with coverage report
 ```
 
+## Documentation
+
+- [Architecture Guide](./docs/ARCHITECTURE.md) - Design patterns and folder structure
+- [Testing Guide](./docs/TESTING.md) - Testing standards and best practices
+- [FRONTEND-STORIES.md](../infra/docs/FRONTEND-STORIES.md) - Feature stories
+
 ## License
 
 MIT © Xynes Studio
