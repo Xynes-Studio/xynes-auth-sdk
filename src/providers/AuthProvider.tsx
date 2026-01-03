@@ -23,7 +23,7 @@ import type {
 } from "../types";
 import { AccountsClient } from "../api/accounts-client";
 import { normalizeAuthError } from "../utils/errors";
-import { buildAuthRedirectUrl } from "../utils/redirect";
+import { buildAuthRedirectUrl, isValidRedirectUrl } from "../utils/redirect";
 
 /**
  * Extended auth context with methods
@@ -271,32 +271,52 @@ export function AuthProvider({
 
   /**
    * Redirect to login page
+   * @security Validates redirect URL against allowedRedirectDomains to prevent open redirects
    */
   const redirectToLogin = useCallback(
     (returnUrl?: string): void => {
+      const targetUrl = returnUrl || window.location.href;
+      // Security: Validate redirect URL if allowedRedirectDomains is configured
+      const safeRedirectUrl =
+        config.allowedRedirectDomains &&
+        config.allowedRedirectDomains.length > 0 &&
+        !isValidRedirectUrl(targetUrl, config.allowedRedirectDomains)
+          ? undefined // Don't pass unsafe redirect URL
+          : targetUrl;
+
       const url = buildAuthRedirectUrl(
         config.authAppUrl,
         "login",
-        returnUrl || window.location.href
+        safeRedirectUrl
       );
       window.location.href = url;
     },
-    [config.authAppUrl]
+    [config.authAppUrl, config.allowedRedirectDomains]
   );
 
   /**
    * Redirect to signup page
+   * @security Validates redirect URL against allowedRedirectDomains to prevent open redirects
    */
   const redirectToSignup = useCallback(
     (returnUrl?: string): void => {
+      const targetUrl = returnUrl || window.location.href;
+      // Security: Validate redirect URL if allowedRedirectDomains is configured
+      const safeRedirectUrl =
+        config.allowedRedirectDomains &&
+        config.allowedRedirectDomains.length > 0 &&
+        !isValidRedirectUrl(targetUrl, config.allowedRedirectDomains)
+          ? undefined // Don't pass unsafe redirect URL
+          : targetUrl;
+
       const url = buildAuthRedirectUrl(
         config.authAppUrl,
         "signup",
-        returnUrl || window.location.href
+        safeRedirectUrl
       );
       window.location.href = url;
     },
-    [config.authAppUrl]
+    [config.authAppUrl, config.allowedRedirectDomains]
   );
 
   /**

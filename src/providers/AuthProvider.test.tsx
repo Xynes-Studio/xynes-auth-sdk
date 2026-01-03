@@ -782,6 +782,99 @@ describe("AuthProvider", () => {
       expect(window.location.href).toContain("redirect=");
     });
   });
+
+  describe("Open Redirect Protection", () => {
+    /**
+     * Test component that calls redirectToLogin without a returnUrl parameter
+     * This forces it to use window.location.href which we can control
+     */
+    function TestConsumerWithoutReturnUrl() {
+      const { isLoading, redirectToLogin } = useAuth();
+
+      return (
+        <div>
+          <div data-testid="loading">{isLoading ? "loading" : "loaded"}</div>
+          <button onClick={() => redirectToLogin()}>Redirect No Param</button>
+        </div>
+      );
+    }
+
+    it("should include redirect URL when domain is in allowedRedirectDomains", async () => {
+      mockGetSession.mockResolvedValue({ data: { session: null } });
+
+      const configWithAllowedDomains: AuthConfig = {
+        ...defaultConfig,
+        allowedRedirectDomains: ["test.com", "app.test.com"],
+      };
+
+      const user = userEvent.setup();
+      render(
+        <AuthProvider config={configWithAllowedDomains}>
+          <TestConsumer />
+        </AuthProvider>
+      );
+
+      await waitFor(() => {
+        expect(screen.getByTestId("loading")).toHaveTextContent("loaded");
+      });
+
+      await user.click(screen.getByText("Redirect Login"));
+
+      // window.location.origin is https://app.test.com which is in allowed domains
+      expect(window.location.href).toContain("redirect=");
+    });
+
+    it("should omit redirect URL when domain is not in allowedRedirectDomains", async () => {
+      mockGetSession.mockResolvedValue({ data: { session: null } });
+
+      const configWithRestrictedDomains: AuthConfig = {
+        ...defaultConfig,
+        allowedRedirectDomains: ["different-domain.com"],
+      };
+
+      // Set location to a domain NOT in allowed list
+      Object.defineProperty(window, "location", {
+        value: {
+          href: "https://evil.com/phishing",
+          origin: "https://evil.com",
+        },
+        writable: true,
+      });
+
+      const user = userEvent.setup();
+      render(
+        <AuthProvider config={configWithRestrictedDomains}>
+          <TestConsumerWithoutReturnUrl />
+        </AuthProvider>
+      );
+
+      await waitFor(() => {
+        expect(screen.getByTestId("loading")).toHaveTextContent("loaded");
+      });
+
+      await user.click(screen.getByText("Redirect No Param"));
+
+      // Should NOT contain redirect param when URL is from untrusted domain
+      expect(window.location.href).not.toContain("redirect=");
+    });
+
+    it("should allow redirect when allowedRedirectDomains is not configured", async () => {
+      mockGetSession.mockResolvedValue({ data: { session: null } });
+
+      // Config without allowedRedirectDomains (undefined)
+      const user = userEvent.setup();
+      renderWithProvider(); // uses defaultConfig which has no allowedRedirectDomains
+
+      await waitFor(() => {
+        expect(screen.getByTestId("loading")).toHaveTextContent("loaded");
+      });
+
+      await user.click(screen.getByText("Redirect Signup"));
+
+      // Should include redirect since no domain restrictions are configured
+      expect(window.location.href).toContain("redirect=");
+    });
+  });
 });
 
 describe("useAuth", () => {
