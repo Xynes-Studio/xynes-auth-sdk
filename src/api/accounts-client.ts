@@ -1,4 +1,4 @@
-import type { BootstrapResponse, Workspace, WorkspaceInvite } from '../types';
+import type { BootstrapResponse, Workspace, WorkspaceInvite } from "../types";
 
 /**
  * Accounts API Client configuration
@@ -25,7 +25,7 @@ export class AccountsClient {
   private getAccessToken: () => Promise<string | null>;
 
   constructor(config: AccountsClientConfig) {
-    this.baseUrl = config.baseUrl.replace(/\/$/, ''); // Remove trailing slash
+    this.baseUrl = config.baseUrl.replace(/\/$/, ""); // Remove trailing slash
     this.getAccessToken = config.getAccessToken;
   }
 
@@ -39,12 +39,12 @@ export class AccountsClient {
     const token = await this.getAccessToken();
 
     const headers: HeadersInit = {
-      'Content-Type': 'application/json',
+      "Content-Type": "application/json",
       ...options.headers,
     };
 
     if (token) {
-      (headers as Record<string, string>)['Authorization'] = `Bearer ${token}`;
+      (headers as Record<string, string>)["Authorization"] = `Bearer ${token}`;
     }
 
     const response = await fetch(`${this.baseUrl}${path}`, {
@@ -73,22 +73,25 @@ export class AccountsClient {
    * Called after successful authentication
    */
   async getMe(): Promise<BootstrapResponse> {
-    return this.request<BootstrapResponse>('/me');
+    return this.request<BootstrapResponse>("/me");
   }
 
   /**
    * Get user's workspaces
    */
   async getWorkspaces(): Promise<Workspace[]> {
-    return this.request<Workspace[]>('/workspaces');
+    return this.request<Workspace[]>("/workspaces");
   }
 
   /**
    * Create a new workspace
    */
-  async createWorkspace(data: { name: string; slug: string }): Promise<Workspace> {
-    return this.request<Workspace>('/workspaces', {
-      method: 'POST',
+  async createWorkspace(data: {
+    name: string;
+    slug: string;
+  }): Promise<Workspace> {
+    return this.request<Workspace>("/workspaces", {
+      method: "POST",
       body: JSON.stringify(data),
     });
   }
@@ -116,7 +119,7 @@ export class AccountsClient {
    */
   async acceptInvite(token: string): Promise<Workspace> {
     return this.request<Workspace>(`/workspace-invites/${token}/accept`, {
-      method: 'POST',
+      method: "POST",
     });
   }
 }
@@ -124,6 +127,8 @@ export class AccountsClient {
 /**
  * Factory function to create an AccountsClient instance
  */
-export function createAccountsClient(config: AccountsClientConfig): AccountsClient {
+export function createAccountsClient(
+  config: AccountsClientConfig
+): AccountsClient {
   return new AccountsClient(config);
 }

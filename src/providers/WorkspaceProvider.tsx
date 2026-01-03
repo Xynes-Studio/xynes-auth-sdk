@@ -1,4 +1,4 @@
-'use client';
+"use client";
 
 import {
   createContext,
@@ -8,9 +8,9 @@ import {
   useMemo,
   useEffect,
   type ReactNode,
-} from 'react';
-import type { Workspace } from '../types';
-import { useAuth } from './AuthProvider';
+} from "react";
+import type { Workspace } from "../types";
+import { useAuth } from "./AuthProvider";
 
 /**
  * Workspace context value
@@ -27,7 +27,7 @@ const WorkspaceContext = createContext<WorkspaceContextValue | null>(null);
 /**
  * Cookie/localStorage key for storing selected workspace
  */
-const WORKSPACE_STORAGE_KEY = 'xynes_workspace_id';
+const WORKSPACE_STORAGE_KEY = "xynes_workspace_id";
 
 /**
  * WorkspaceProvider props
@@ -41,12 +41,14 @@ export interface WorkspaceProviderProps {
  */
 export function WorkspaceProvider({ children }: WorkspaceProviderProps) {
   const { workspaces, isLoading: authLoading } = useAuth();
-  const [selectedWorkspaceId, setSelectedWorkspaceId] = useState<string | null>(null);
+  const [selectedWorkspaceId, setSelectedWorkspaceId] = useState<string | null>(
+    null
+  );
   const [isLoading, setIsLoading] = useState(true);
 
   // Load saved workspace ID on mount
   useEffect(() => {
-    if (typeof window !== 'undefined') {
+    if (typeof window !== "undefined") {
       const savedId = localStorage.getItem(WORKSPACE_STORAGE_KEY);
       if (savedId) {
         setSelectedWorkspaceId(savedId);
@@ -81,14 +83,14 @@ export function WorkspaceProvider({ children }: WorkspaceProviderProps) {
 
   const selectWorkspace = useCallback((workspaceId: string) => {
     setSelectedWorkspaceId(workspaceId);
-    if (typeof window !== 'undefined') {
+    if (typeof window !== "undefined") {
       localStorage.setItem(WORKSPACE_STORAGE_KEY, workspaceId);
     }
   }, []);
 
   const clearWorkspace = useCallback(() => {
     setSelectedWorkspaceId(null);
-    if (typeof window !== 'undefined') {
+    if (typeof window !== "undefined") {
       localStorage.removeItem(WORKSPACE_STORAGE_KEY);
     }
   }, []);
@@ -117,7 +119,7 @@ export function useWorkspace(): WorkspaceContextValue {
   const context = useContext(WorkspaceContext);
 
   if (!context) {
-    throw new Error('useWorkspace must be used within a WorkspaceProvider');
+    throw new Error("useWorkspace must be used within a WorkspaceProvider");
   }
 
   return context;

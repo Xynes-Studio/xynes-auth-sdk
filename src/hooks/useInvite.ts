@@ -1,10 +1,10 @@
-'use client';
+"use client";
 
-import { useState, useEffect, useCallback } from 'react';
-import type { WorkspaceInvite, Workspace, AuthError } from '../types';
-import { AccountsClient } from '../api/accounts-client';
-import { normalizeAuthError } from '../utils/errors';
-import { useAuth } from '../providers/AuthProvider';
+import { useState, useEffect, useCallback } from "react";
+import type { WorkspaceInvite, Workspace, AuthError } from "../types";
+import { AccountsClient } from "../api/accounts-client";
+import { normalizeAuthError } from "../utils/errors";
+import { useAuth } from "../providers/AuthProvider";
 
 /**
  * Return type for useInvite hook
@@ -23,7 +23,10 @@ export interface UseInviteResult {
  * @param token - The invite token from the URL
  * @param apiBaseUrl - Base URL for the accounts API
  */
-export function useInvite(token: string | null, apiBaseUrl: string): UseInviteResult {
+export function useInvite(
+  token: string | null,
+  apiBaseUrl: string
+): UseInviteResult {
   const { isAuthenticated } = useAuth();
   const [invite, setInvite] = useState<WorkspaceInvite | null>(null);
   const [isLoading, setIsLoading] = useState(false);
@@ -74,7 +77,7 @@ export function useInvite(token: string | null, apiBaseUrl: string): UseInviteRe
 
     try {
       // For accepting, we need auth, so we import from provider context
-      // This is a simplified version - in real implementation, 
+      // This is a simplified version - in real implementation,
       // you'd get the token from the auth context
       const workspace = await accountsClient.acceptInvite(token);
       return workspace;

@@ -18,7 +18,7 @@ export interface Workspace {
   id: string;
   name: string;
   slug: string;
-  planType: 'free' | 'pro' | 'enterprise';
+  planType: "free" | "pro" | "enterprise";
   role: WorkspaceRole;
   createdAt: string;
   updatedAt: string;
@@ -27,7 +27,10 @@ export interface Workspace {
 /**
  * Workspace role types
  */
-export type WorkspaceRole = 'workspace_owner' | 'workspace_admin' | 'workspace_member';
+export type WorkspaceRole =
+  | "workspace_owner"
+  | "workspace_admin"
+  | "workspace_member";
 
 /**
  * Workspace invite object
@@ -49,7 +52,7 @@ export interface WorkspaceInvite {
 /**
  * Invite status types
  */
-export type InviteStatus = 'pending' | 'accepted' | 'expired' | 'cancelled';
+export type InviteStatus = "pending" | "accepted" | "expired" | "cancelled";
 
 /**
  * Auth state for the AuthProvider
@@ -74,16 +77,16 @@ export interface AuthError {
  * Auth error codes
  */
 export type AuthErrorCode =
-  | 'invalid_credentials'
-  | 'email_not_verified'
-  | 'user_not_found'
-  | 'email_already_exists'
-  | 'weak_password'
-  | 'invalid_email'
-  | 'network_error'
-  | 'session_expired'
-  | 'rate_limited'
-  | 'unknown_error';
+  | "invalid_credentials"
+  | "email_not_verified"
+  | "user_not_found"
+  | "email_already_exists"
+  | "weak_password"
+  | "invalid_email"
+  | "network_error"
+  | "session_expired"
+  | "rate_limited"
+  | "unknown_error";
 
 /**
  * SDK configuration
@@ -99,7 +102,7 @@ export interface AuthConfig {
 /**
  * OAuth provider types
  */
-export type OAuthProvider = 'google' | 'github';
+export type OAuthProvider = "google" | "github";
 
 /**
  * Sign up input

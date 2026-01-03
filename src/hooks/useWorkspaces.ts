@@ -1,7 +1,7 @@
-'use client';
+"use client";
 
-import { useAuth } from '../providers/AuthProvider';
-import type { Workspace } from '../types';
+import { useAuth } from "../providers/AuthProvider";
+import type { Workspace } from "../types";
 
 /**
  * Return type for useWorkspaces hook

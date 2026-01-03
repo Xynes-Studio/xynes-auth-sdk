@@ -1,43 +1,95 @@
-// Providers
-export { AuthProvider, useAuth } from './providers/AuthProvider';
-export { WorkspaceProvider, useWorkspace } from './providers/WorkspaceProvider';
-export type { AuthProviderProps, WorkspaceProviderProps } from './providers';
+// ─────────────────────────────────────────────────────────────────
+// CORE (always available)
+// ─────────────────────────────────────────────────────────────────
+export {
+  // Module Registry
+  ModuleRegistry,
+  moduleRegistry,
+  MODULE_IDS,
+  // Feature Flags
+  DEFAULT_FLAGS,
+  createFeatureFlags,
+  isFeatureEnabled,
+  mergeFeatureFlags,
+  // Configuration
+  createAuthConfig,
+  validateAuthConfig,
+} from "./core";
 
-// Hooks
-export { useInvite } from './hooks/useInvite';
-export { useWorkspaces } from './hooks/useWorkspaces';
-export type { UseInviteResult, UseWorkspacesResult } from './hooks';
+export type {
+  // Module Registry Types
+  AuthModule,
+  RouteConfig,
+  LayoutType,
+  GuardType,
+  ModuleId,
+  // Feature Flags Types
+  AuthFeatureFlags,
+  // Configuration Types
+  AuthSDKConfig,
+  AuthSDKConfigInput,
+  SupabaseConfig,
+  ApiConfig,
+  AuthAppConfig,
+  ModuleOverride,
+  ValidationResult as ConfigValidationResult,
+} from "./core";
 
-// API Client
-export { AccountsClient, createAccountsClient } from './api/accounts-client';
-export type { AccountsClientConfig, ApiError } from './api';
+// ─────────────────────────────────────────────────────────────────
+// PROVIDERS
+// ─────────────────────────────────────────────────────────────────
+export { AuthProvider, useAuth } from "./providers/AuthProvider";
+export { WorkspaceProvider, useWorkspace } from "./providers/WorkspaceProvider";
+export type { AuthProviderProps, WorkspaceProviderProps } from "./providers";
 
-// Components
-export { AuthGuard } from './components/AuthGuard';
-export type { AuthGuardProps } from './components';
+// ─────────────────────────────────────────────────────────────────
+// HOOKS (lazy-loaded internally)
+// ─────────────────────────────────────────────────────────────────
+export { useInvite } from "./hooks/useInvite";
+export { useWorkspaces } from "./hooks/useWorkspaces";
+export type { UseInviteResult, UseWorkspacesResult } from "./hooks";
 
-// Utilities
+// ─────────────────────────────────────────────────────────────────
+// API CLIENT
+// ─────────────────────────────────────────────────────────────────
+export { AccountsClient, createAccountsClient } from "./api/accounts-client";
+export type { AccountsClientConfig, ApiError } from "./api";
+
+// ─────────────────────────────────────────────────────────────────
+// COMPONENTS (tree-shakeable)
+// ─────────────────────────────────────────────────────────────────
+export { AuthGuard } from "./components/AuthGuard";
+export type { AuthGuardProps } from "./components";
+
+// ─────────────────────────────────────────────────────────────────
+// SECURITY UTILITIES
+// ─────────────────────────────────────────────────────────────────
 export {
   isValidRedirectUrl,
   getSafeRedirectUrl,
   buildAuthRedirectUrl,
-} from './utils/redirect';
+} from "./utils/redirect";
 
 export {
   normalizeAuthError,
   isRetryableError,
   getErrorMessage,
-} from './utils/errors';
+} from "./utils/errors";
 
+// ─────────────────────────────────────────────────────────────────
+// VALIDATION SCHEMAS
+// ─────────────────────────────────────────────────────────────────
 export {
   validateEmail,
   validatePassword,
   getPasswordStrength,
   PASSWORD_STRENGTH_CONFIG,
-} from './utils/validation';
-export type { PasswordStrength, ValidationResult } from './utils/validation';
+} from "./utils/validation";
+export type { PasswordStrength, ValidationResult } from "./utils/validation";
 
-// Types
+// ─────────────────────────────────────────────────────────────────
+// TYPES
+// ─────────────────────────────────────────────────────────────────
 export type {
   User,
   Workspace,
@@ -53,4 +105,4 @@ export type {
   SignInInput,
   AuthResult,
   BootstrapResponse,
-} from './types';
+} from "./types";

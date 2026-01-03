@@ -1,4 +1,4 @@
-'use client';
+"use client";
 
 import {
   createContext,
@@ -8,9 +8,9 @@ import {
   useCallback,
   useMemo,
   type ReactNode,
-} from 'react';
-import { createBrowserClient } from '@supabase/ssr';
-import type { SupabaseClient, Session } from '@supabase/supabase-js';
+} from "react";
+import { createBrowserClient } from "@supabase/ssr";
+import type { SupabaseClient, Session } from "@supabase/supabase-js";
 import type {
   AuthConfig,
   AuthState,
@@ -20,10 +20,10 @@ import type {
   SignUpInput,
   SignInInput,
   AuthResult,
-} from '../types';
-import { AccountsClient } from '../api/accounts-client';
-import { normalizeAuthError } from '../utils/errors';
-import { buildAuthRedirectUrl } from '../utils/redirect';
+} from "../types";
+import { AccountsClient } from "../api/accounts-client";
+import { normalizeAuthError } from "../utils/errors";
+import { buildAuthRedirectUrl } from "../utils/redirect";
 
 /**
  * Extended auth context with methods
@@ -95,7 +95,7 @@ export function AuthProvider({
       const response = await accountsClient.getMe();
       return response;
     } catch (error) {
-      console.error('Failed to bootstrap user:', error);
+      console.error("Failed to bootstrap user:", error);
       return null;
     }
   }, [accountsClient]);
@@ -276,7 +276,7 @@ export function AuthProvider({
     (returnUrl?: string): void => {
       const url = buildAuthRedirectUrl(
         config.authAppUrl,
-        'login',
+        "login",
         returnUrl || window.location.href
       );
       window.location.href = url;
@@ -291,7 +291,7 @@ export function AuthProvider({
     (returnUrl?: string): void => {
       const url = buildAuthRedirectUrl(
         config.authAppUrl,
-        'signup',
+        "signup",
         returnUrl || window.location.href
       );
       window.location.href = url;
@@ -342,7 +342,7 @@ export function useAuth(): AuthContextValue {
   const context = useContext(AuthContext);
 
   if (!context) {
-    throw new Error('useAuth must be used within an AuthProvider');
+    throw new Error("useAuth must be used within an AuthProvider");
   }
 
   return context;

@@ -1,24 +1,27 @@
 /**
  * Validates if a redirect URL is safe to redirect to.
  * Prevents open redirect attacks by checking against allowed domains.
- * 
+ *
  * @param url - The URL to validate
  * @param allowedDomains - List of allowed domains (e.g., ['xynes.com', 'localhost:3000'])
  * @returns true if the URL is safe to redirect to
  */
-export function isValidRedirectUrl(url: string, allowedDomains: string[]): boolean {
-  if (!url || typeof url !== 'string') {
+export function isValidRedirectUrl(
+  url: string,
+  allowedDomains: string[]
+): boolean {
+  if (!url || typeof url !== "string") {
     return false;
   }
 
   // Reject javascript: and data: URLs
   const lowerUrl = url.toLowerCase().trim();
-  if (lowerUrl.startsWith('javascript:') || lowerUrl.startsWith('data:')) {
+  if (lowerUrl.startsWith("javascript:") || lowerUrl.startsWith("data:")) {
     return false;
   }
 
   // Allow relative URLs (they're safe since they stay on the same origin)
-  if (url.startsWith('/') && !url.startsWith('//')) {
+  if (url.startsWith("/") && !url.startsWith("//")) {
     return true;
   }
 
@@ -31,8 +34,8 @@ export function isValidRedirectUrl(url: string, allowedDomains: string[]): boole
       const lowerDomain = domain.toLowerCase();
 
       // Handle localhost with port (e.g., localhost:3000)
-      if (lowerDomain.includes(':')) {
-        const [domainHost, domainPort] = lowerDomain.split(':');
+      if (lowerDomain.includes(":")) {
+        const [domainHost, domainPort] = lowerDomain.split(":");
         return hostname === domainHost && parsedUrl.port === domainPort;
       }
 
@@ -48,7 +51,7 @@ export function isValidRedirectUrl(url: string, allowedDomains: string[]): boole
 
 /**
  * Returns a safe redirect URL, falling back to a default if the URL is invalid.
- * 
+ *
  * @param url - The URL to validate
  * @param defaultUrl - The fallback URL if validation fails
  * @param allowedDomains - List of allowed domains
@@ -64,7 +67,7 @@ export function getSafeRedirectUrl(
   }
 
   // Allow relative URLs
-  if (url.startsWith('/') && !url.startsWith('//')) {
+  if (url.startsWith("/") && !url.startsWith("//")) {
     return url;
   }
 
@@ -77,7 +80,7 @@ export function getSafeRedirectUrl(
 
 /**
  * Builds a URL to the auth app with an optional redirect parameter.
- * 
+ *
  * @param authAppUrl - Base URL of the auth app (e.g., 'https://auth.xynes.com')
  * @param path - Path to navigate to (e.g., 'login', 'signup')
  * @param redirectUrl - Optional URL to redirect back to after auth
@@ -85,13 +88,13 @@ export function getSafeRedirectUrl(
  */
 export function buildAuthRedirectUrl(
   authAppUrl: string,
-  path: 'login' | 'signup' | 'logout',
+  path: "login" | "signup" | "logout",
   redirectUrl?: string
 ): string {
   const url = new URL(`/${path}`, authAppUrl);
 
   if (redirectUrl) {
-    url.searchParams.set('redirect', redirectUrl);
+    url.searchParams.set("redirect", redirectUrl);
   }
 
   return url.toString();
