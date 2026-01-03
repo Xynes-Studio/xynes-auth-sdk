@@ -114,8 +114,16 @@ describe("ModuleRegistry", () => {
 
   describe("getEnabled", () => {
     it("should return only enabled modules", () => {
-      const enabled: AuthModule = { id: "enabled", name: "Enabled", enabled: true };
-      const disabled: AuthModule = { id: "disabled", name: "Disabled", enabled: false };
+      const enabled: AuthModule = {
+        id: "enabled",
+        name: "Enabled",
+        enabled: true,
+      };
+      const disabled: AuthModule = {
+        id: "disabled",
+        name: "Disabled",
+        enabled: false,
+      };
 
       registry.register(enabled);
       registry.register(disabled);
@@ -127,7 +135,11 @@ describe("ModuleRegistry", () => {
     });
 
     it("should return empty array when no modules are enabled", () => {
-      const disabled: AuthModule = { id: "disabled", name: "Disabled", enabled: false };
+      const disabled: AuthModule = {
+        id: "disabled",
+        name: "Disabled",
+        enabled: false,
+      };
       registry.register(disabled);
 
       expect(registry.getEnabled()).toEqual([]);

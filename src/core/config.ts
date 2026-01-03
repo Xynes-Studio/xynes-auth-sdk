@@ -27,10 +27,7 @@
  * ```
  */
 
-import {
-  type AuthFeatureFlags,
-  createFeatureFlags,
-} from "./feature-flags";
+import { type AuthFeatureFlags, createFeatureFlags } from "./feature-flags";
 
 /**
  * Module override configuration
@@ -172,7 +169,10 @@ export function validateAuthConfig(config: AuthSDKConfig): ValidationResult {
   }
 
   // Validate cookie domain format if provided
-  if (config.auth.cookieDomain && !isValidCookieDomain(config.auth.cookieDomain)) {
+  if (
+    config.auth.cookieDomain &&
+    !isValidCookieDomain(config.auth.cookieDomain)
+  ) {
     errors.push("auth.cookieDomain must start with a dot (e.g., .xynes.com)");
   }
 

@@ -360,7 +360,9 @@ describe("validateAuthConfig", () => {
     const result = validateAuthConfig(config as AuthSDKConfig);
 
     expect(result.valid).toBe(false);
-    expect(result.errors).toContain("auth.cookieDomain must start with a dot (e.g., .xynes.com)");
+    expect(result.errors).toContain(
+      "auth.cookieDomain must start with a dot (e.g., .xynes.com)"
+    );
   });
 
   it("should reject URLs with non-http protocols", () => {
