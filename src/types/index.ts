@@ -97,6 +97,11 @@ export interface AuthConfig {
   apiBaseUrl: string;
   authAppUrl: string;
   cookieDomain?: string;
+  /**
+   * Allowed domains for redirect URLs (security: prevents open redirects)
+   * @example ['xynes.com', 'localhost:3000']
+   */
+  allowedRedirectDomains?: string[];
 }
 
 /**

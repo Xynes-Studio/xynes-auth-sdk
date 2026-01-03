@@ -41,7 +41,8 @@ This SDK follows the three-tier testing architecture defined in [ADR-001](../../
 | `src/utils/errors.ts` | Tier 1 | **94%** | 100% |
 | `src/hooks/useWorkspaces.ts` | Tier 2 | **100%** | 70% |
 | `src/hooks/useInvite.ts` | Tier 2 | **100%** | 70% |
-| `src/providers/*` | Tier 2 | - | 70% |
+| `src/providers/AuthProvider.tsx` | Tier 2 | **98%** | 70% |
+| `src/providers/WorkspaceProvider.tsx` | Tier 2 | - | 70% |
 | `src/components/*` | Tier 2 | - | 70% |
 
 ## Running Tests
@@ -74,7 +75,8 @@ src/
 │   └── useWorkspaces.test.ts    # Integration tests (Tier 2)
 ├── providers/
 │   ├── AuthProvider.tsx         # Implementation
-│   └── AuthProvider.test.tsx    # Integration tests (Tier 2)
+│   ├── AuthProvider.test.tsx    # Integration tests (Tier 2) - 27 tests, 98% coverage
+│   └── WorkspaceProvider.tsx    # Implementation
 └── test/
     └── setup.ts                 # Test setup and utilities
 ```
