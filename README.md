@@ -182,6 +182,52 @@ NEXT_PUBLIC_API_URL=https://api.xynes.com
 NEXT_PUBLIC_AUTH_APP_URL=https://auth.xynes.com
 ```
 
-## License
+## Development
 
-MIT
+### Setup
+
+```bash
+# Install dependencies
+pnpm install
+
+# Build the package
+pnpm build
+
+# Run tests
+pnpm test
+
+# Run tests with coverage
+pnpm test:coverage
+
+# Run linting
+pnpm lint
+```
+
+### Project Structure
+
+```
+src/
+├── api/           # API clients (AccountsClient)
+├── components/    # React components (AuthGuard)
+├── hooks/         # React hooks (useInvite, useWorkspaces)
+├── providers/     # Context providers (AuthProvider, WorkspaceProvider)
+├── types/         # TypeScript type definitions
+└── utils/         # Pure utilities (validation, errors, redirect)
+```
+
+### Testing Strategy
+
+Following ADR-001 testing standards:
+
+| Layer | Coverage | Target |
+|-------|----------|--------|
+| Utils (Tier 1) | 95%+ | 100% |
+| Hooks (Tier 2) | 98%+ | 70% |
+| Providers (Tier 3) | Smoke | N/A |
+
+Run tests:
+```bash
+pnpm test           # Run all tests
+pnpm test:coverage  # Run with coverage report
+```
+

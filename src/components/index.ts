@@ -1,2 +1,2 @@
-export { AuthGuard } from './AuthGuard';
-export type { AuthGuardProps } from './AuthGuard';
+export { AuthGuard } from "./AuthGuard";
+export type { AuthGuardProps } from "./AuthGuard";

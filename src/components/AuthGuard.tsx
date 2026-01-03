@@ -1,7 +1,7 @@
-'use client';
+"use client";
 
-import { useEffect, type ReactNode } from 'react';
-import { useAuth } from '../providers/AuthProvider';
+import { useEffect, type ReactNode } from "react";
+import { useAuth } from "../providers/AuthProvider";
 
 /**
  * AuthGuard props
