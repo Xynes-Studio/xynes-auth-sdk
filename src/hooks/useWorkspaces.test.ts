@@ -12,19 +12,37 @@ const mockWorkspaces: Workspace[] = [
     id: "ws-1",
     name: "Workspace 1",
     slug: "workspace-1",
-    tier: "starter",
+    planType: "free",
     createdAt: "2024-01-01",
-    role: "owner",
+    updatedAt: "2024-01-01",
+    role: "workspace_owner",
   },
   {
     id: "ws-2",
     name: "Workspace 2",
     slug: "workspace-2",
-    tier: "pro",
+    planType: "pro",
     createdAt: "2024-01-02",
-    role: "member",
+    updatedAt: "2024-01-02",
+    role: "workspace_member",
   },
 ];
+
+const createMockAuthValue = (overrides = {}) => ({
+  user: null,
+  isLoading: false,
+  isAuthenticated: false,
+  workspaces: [],
+  error: null,
+  signUp: vi.fn(),
+  signInWithPassword: vi.fn(),
+  signInWithOAuth: vi.fn(),
+  signOut: vi.fn(),
+  refreshSession: vi.fn(),
+  redirectToLogin: vi.fn(),
+  redirectToSignup: vi.fn(),
+  ...overrides,
+});
 
 describe("useWorkspaces", () => {
   beforeEach(() => {
@@ -32,18 +50,7 @@ describe("useWorkspaces", () => {
   });
 
   it("should return loading state and empty workspaces initially", () => {
-    mockUseAuth.mockReturnValue({
-      user: null,
-      session: null,
-      isLoading: true,
-      isAuthenticated: false,
-      workspaces: [],
-      signUp: vi.fn(),
-      signIn: vi.fn(),
-      signInWithOAuth: vi.fn(),
-      signOut: vi.fn(),
-      refreshSession: vi.fn(),
-    });
+    mockUseAuth.mockReturnValue(createMockAuthValue({ isLoading: true }));
 
     const { result } = renderHook(() => useWorkspaces());
 
@@ -55,18 +62,12 @@ describe("useWorkspaces", () => {
   });
 
   it("should return hasWorkspaces = true when workspaces exist", () => {
-    mockUseAuth.mockReturnValue({
-      user: null,
-      session: null,
-      isLoading: false,
-      isAuthenticated: true,
-      workspaces: mockWorkspaces,
-      signUp: vi.fn(),
-      signIn: vi.fn(),
-      signInWithOAuth: vi.fn(),
-      signOut: vi.fn(),
-      refreshSession: vi.fn(),
-    });
+    mockUseAuth.mockReturnValue(
+      createMockAuthValue({
+        isAuthenticated: true,
+        workspaces: mockWorkspaces,
+      })
+    );
 
     const { result } = renderHook(() => useWorkspaces());
 
@@ -78,18 +79,12 @@ describe("useWorkspaces", () => {
   });
 
   it("should return hasSingleWorkspace = true when only one workspace", () => {
-    mockUseAuth.mockReturnValue({
-      user: null,
-      session: null,
-      isLoading: false,
-      isAuthenticated: true,
-      workspaces: [mockWorkspaces[0]],
-      signUp: vi.fn(),
-      signIn: vi.fn(),
-      signInWithOAuth: vi.fn(),
-      signOut: vi.fn(),
-      refreshSession: vi.fn(),
-    });
+    mockUseAuth.mockReturnValue(
+      createMockAuthValue({
+        isAuthenticated: true,
+        workspaces: [mockWorkspaces[0]],
+      })
+    );
 
     const { result } = renderHook(() => useWorkspaces());
 
@@ -98,18 +93,12 @@ describe("useWorkspaces", () => {
   });
 
   it("should return hasMultipleWorkspaces = true when more than one workspace", () => {
-    mockUseAuth.mockReturnValue({
-      user: null,
-      session: null,
-      isLoading: false,
-      isAuthenticated: true,
-      workspaces: mockWorkspaces,
-      signUp: vi.fn(),
-      signIn: vi.fn(),
-      signInWithOAuth: vi.fn(),
-      signOut: vi.fn(),
-      refreshSession: vi.fn(),
-    });
+    mockUseAuth.mockReturnValue(
+      createMockAuthValue({
+        isAuthenticated: true,
+        workspaces: mockWorkspaces,
+      })
+    );
 
     const { result } = renderHook(() => useWorkspaces());
 

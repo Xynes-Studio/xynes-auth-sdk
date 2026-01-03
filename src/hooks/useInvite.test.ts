@@ -34,24 +34,28 @@ describe("useInvite", () => {
     vi.clearAllMocks();
     mockResolveInvite.mockReset();
     mockAcceptInvite.mockReset();
-    
+
     // Default mock for useAuth - not authenticated
     mockUseAuth.mockReturnValue({
       user: null,
-      session: null,
       isLoading: false,
       isAuthenticated: false,
       workspaces: [],
+      error: null,
       signUp: vi.fn(),
-      signIn: vi.fn(),
+      signInWithPassword: vi.fn(),
       signInWithOAuth: vi.fn(),
       signOut: vi.fn(),
       refreshSession: vi.fn(),
+      redirectToLogin: vi.fn(),
+      redirectToSignup: vi.fn(),
     });
   });
 
   it("should return initial state when no token provided", () => {
-    const { result } = renderHook(() => useInvite(null, "http://localhost:4100"));
+    const { result } = renderHook(() =>
+      useInvite(null, "http://localhost:4100")
+    );
 
     expect(result.current.invite).toBeNull();
     expect(result.current.isLoading).toBe(false);
@@ -62,16 +66,20 @@ describe("useInvite", () => {
 
   it("should set loading state when token is provided", () => {
     mockResolveInvite.mockImplementation(() => new Promise(() => {})); // Never resolves
-    
-    const { result } = renderHook(() => useInvite("test-token", "http://localhost:4100"));
+
+    const { result } = renderHook(() =>
+      useInvite("test-token", "http://localhost:4100")
+    );
 
     expect(result.current.isLoading).toBe(true);
   });
 
   it("should resolve invite successfully", async () => {
     mockResolveInvite.mockResolvedValueOnce(mockInvite);
-    
-    const { result } = renderHook(() => useInvite("valid-token", "http://localhost:4100"));
+
+    const { result } = renderHook(() =>
+      useInvite("valid-token", "http://localhost:4100")
+    );
 
     await waitFor(() => {
       expect(result.current.isLoading).toBe(false);
@@ -83,8 +91,10 @@ describe("useInvite", () => {
 
   it("should handle resolve error", async () => {
     mockResolveInvite.mockRejectedValueOnce(new Error("Invite not found"));
-    
-    const { result } = renderHook(() => useInvite("invalid-token", "http://localhost:4100"));
+
+    const { result } = renderHook(() =>
+      useInvite("invalid-token", "http://localhost:4100")
+    );
 
     await waitFor(() => {
       expect(result.current.isLoading).toBe(false);
@@ -95,7 +105,9 @@ describe("useInvite", () => {
   });
 
   it("should return null from acceptInvite when no token", async () => {
-    const { result } = renderHook(() => useInvite(null, "http://localhost:4100"));
+    const { result } = renderHook(() =>
+      useInvite(null, "http://localhost:4100")
+    );
 
     let acceptResult: unknown;
     await act(async () => {
@@ -107,8 +119,10 @@ describe("useInvite", () => {
 
   it("should return null from acceptInvite when not authenticated", async () => {
     mockResolveInvite.mockResolvedValueOnce(mockInvite);
-    
-    const { result } = renderHook(() => useInvite("test-token", "http://localhost:4100"));
+
+    const { result } = renderHook(() =>
+      useInvite("test-token", "http://localhost:4100")
+    );
 
     await waitFor(() => {
       expect(result.current.isLoading).toBe(false);
@@ -134,22 +148,34 @@ describe("useInvite", () => {
     };
 
     mockUseAuth.mockReturnValue({
-      user: { id: "user-1", email: "test@example.com", emailVerified: true, createdAt: "2024-01-01" },
-      session: { access_token: "token", refresh_token: "refresh" } as unknown as import("@supabase/supabase-js").Session,
+      user: {
+        id: "user-1",
+        email: "test@example.com",
+        displayName: "Test User",
+        avatarUrl: null,
+        emailVerified: true,
+        createdAt: "2024-01-01",
+        updatedAt: "2024-01-01",
+      },
       isLoading: false,
       isAuthenticated: true,
       workspaces: [],
+      error: null,
       signUp: vi.fn(),
-      signIn: vi.fn(),
+      signInWithPassword: vi.fn(),
       signInWithOAuth: vi.fn(),
       signOut: vi.fn(),
       refreshSession: vi.fn(),
+      redirectToLogin: vi.fn(),
+      redirectToSignup: vi.fn(),
     });
 
     mockResolveInvite.mockResolvedValueOnce(mockInvite);
     mockAcceptInvite.mockResolvedValueOnce(mockWorkspace);
-    
-    const { result } = renderHook(() => useInvite("test-token", "http://localhost:4100"));
+
+    const { result } = renderHook(() =>
+      useInvite("test-token", "http://localhost:4100")
+    );
 
     await waitFor(() => {
       expect(result.current.isLoading).toBe(false);
@@ -165,22 +191,36 @@ describe("useInvite", () => {
 
   it("should handle accept invite error", async () => {
     mockUseAuth.mockReturnValue({
-      user: { id: "user-1", email: "test@example.com", emailVerified: true, createdAt: "2024-01-01" },
-      session: { access_token: "token", refresh_token: "refresh" } as unknown as import("@supabase/supabase-js").Session,
+      user: {
+        id: "user-1",
+        email: "test@example.com",
+        displayName: "Test User",
+        avatarUrl: null,
+        emailVerified: true,
+        createdAt: "2024-01-01",
+        updatedAt: "2024-01-01",
+      },
       isLoading: false,
       isAuthenticated: true,
       workspaces: [],
+      error: null,
       signUp: vi.fn(),
-      signIn: vi.fn(),
+      signInWithPassword: vi.fn(),
       signInWithOAuth: vi.fn(),
       signOut: vi.fn(),
       refreshSession: vi.fn(),
+      redirectToLogin: vi.fn(),
+      redirectToSignup: vi.fn(),
     });
 
     mockResolveInvite.mockResolvedValueOnce(mockInvite);
-    mockAcceptInvite.mockRejectedValueOnce(new Error("Failed to accept invite"));
-    
-    const { result } = renderHook(() => useInvite("test-token", "http://localhost:4100"));
+    mockAcceptInvite.mockRejectedValueOnce(
+      new Error("Failed to accept invite")
+    );
+
+    const { result } = renderHook(() =>
+      useInvite("test-token", "http://localhost:4100")
+    );
 
     await waitFor(() => {
       expect(result.current.isLoading).toBe(false);
@@ -197,11 +237,11 @@ describe("useInvite", () => {
 
   it("should clear invite when token changes to null", async () => {
     mockResolveInvite.mockResolvedValueOnce(mockInvite);
-    
+
     const { result, rerender } = renderHook(
       ({ token }) => useInvite(token, "http://localhost:4100"),
-      { 
-        initialProps: { token: "test-token" as string | null }
+      {
+        initialProps: { token: "test-token" as string | null },
       }
     );
 
