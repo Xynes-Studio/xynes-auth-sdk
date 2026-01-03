@@ -150,6 +150,8 @@ export function validateAuthConfig(config: AuthSDKConfig): ValidationResult {
   // Validate Supabase config
   if (!config.supabase.url) {
     errors.push("supabase.url is required");
+  } else if (!isValidUrl(config.supabase.url)) {
+    errors.push("supabase.url must be a valid URL");
   }
   if (!config.supabase.anonKey) {
     errors.push("supabase.anonKey is required");
@@ -158,15 +160,47 @@ export function validateAuthConfig(config: AuthSDKConfig): ValidationResult {
   // Validate API config
   if (!config.api.baseUrl) {
     errors.push("api.baseUrl is required");
+  } else if (!isValidUrl(config.api.baseUrl)) {
+    errors.push("api.baseUrl must be a valid URL");
   }
 
   // Validate Auth config
   if (!config.auth.appUrl) {
     errors.push("auth.appUrl is required");
+  } else if (!isValidUrl(config.auth.appUrl)) {
+    errors.push("auth.appUrl must be a valid URL");
+  }
+
+  // Validate cookie domain format if provided
+  if (config.auth.cookieDomain && !isValidCookieDomain(config.auth.cookieDomain)) {
+    errors.push("auth.cookieDomain must start with a dot (e.g., .xynes.com)");
   }
 
   return {
     valid: errors.length === 0,
     errors,
   };
+}
+
+/**
+ * Validate URL format
+ * @internal
+ */
+function isValidUrl(url: string): boolean {
+  try {
+    const parsed = new URL(url);
+    return parsed.protocol === "http:" || parsed.protocol === "https:";
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Validate cookie domain format
+ * @internal
+ */
+function isValidCookieDomain(domain: string): boolean {
+  // Cookie domain should start with a dot for subdomain sharing
+  // or be a valid hostname
+  return domain.startsWith(".") || /^[a-z0-9.-]+$/i.test(domain);
 }

@@ -234,4 +234,153 @@ describe("validateAuthConfig", () => {
     expect(result.valid).toBe(false);
     expect(result.errors.length).toBe(4);
   });
+
+  it("should validate URL format for supabase.url", () => {
+    const config = {
+      supabase: {
+        url: "not-a-valid-url",
+        anonKey: "test-key",
+      },
+      api: {
+        baseUrl: "https://api.example.com",
+      },
+      auth: {
+        appUrl: "https://auth.example.com",
+      },
+      features: {} as AuthSDKConfig["features"],
+    };
+
+    const result = validateAuthConfig(config as AuthSDKConfig);
+
+    expect(result.valid).toBe(false);
+    expect(result.errors).toContain("supabase.url must be a valid URL");
+  });
+
+  it("should validate URL format for api.baseUrl", () => {
+    const config = {
+      supabase: {
+        url: "https://test.supabase.co",
+        anonKey: "test-key",
+      },
+      api: {
+        baseUrl: "invalid-url",
+      },
+      auth: {
+        appUrl: "https://auth.example.com",
+      },
+      features: {} as AuthSDKConfig["features"],
+    };
+
+    const result = validateAuthConfig(config as AuthSDKConfig);
+
+    expect(result.valid).toBe(false);
+    expect(result.errors).toContain("api.baseUrl must be a valid URL");
+  });
+
+  it("should validate URL format for auth.appUrl", () => {
+    const config = {
+      supabase: {
+        url: "https://test.supabase.co",
+        anonKey: "test-key",
+      },
+      api: {
+        baseUrl: "https://api.example.com",
+      },
+      auth: {
+        appUrl: "not-valid",
+      },
+      features: {} as AuthSDKConfig["features"],
+    };
+
+    const result = validateAuthConfig(config as AuthSDKConfig);
+
+    expect(result.valid).toBe(false);
+    expect(result.errors).toContain("auth.appUrl must be a valid URL");
+  });
+
+  it("should accept valid cookie domain starting with dot", () => {
+    const config = {
+      supabase: {
+        url: "https://test.supabase.co",
+        anonKey: "test-key",
+      },
+      api: {
+        baseUrl: "https://api.example.com",
+      },
+      auth: {
+        appUrl: "https://auth.example.com",
+        cookieDomain: ".xynes.com",
+      },
+      features: {} as AuthSDKConfig["features"],
+    };
+
+    const result = validateAuthConfig(config as AuthSDKConfig);
+
+    expect(result.valid).toBe(true);
+    expect(result.errors).toHaveLength(0);
+  });
+
+  it("should accept valid cookie domain without dot", () => {
+    const config = {
+      supabase: {
+        url: "https://test.supabase.co",
+        anonKey: "test-key",
+      },
+      api: {
+        baseUrl: "https://api.example.com",
+      },
+      auth: {
+        appUrl: "https://auth.example.com",
+        cookieDomain: "localhost",
+      },
+      features: {} as AuthSDKConfig["features"],
+    };
+
+    const result = validateAuthConfig(config as AuthSDKConfig);
+
+    expect(result.valid).toBe(true);
+  });
+
+  it("should reject invalid cookie domain with special characters", () => {
+    const config = {
+      supabase: {
+        url: "https://test.supabase.co",
+        anonKey: "test-key",
+      },
+      api: {
+        baseUrl: "https://api.example.com",
+      },
+      auth: {
+        appUrl: "https://auth.example.com",
+        cookieDomain: "invalid domain!",
+      },
+      features: {} as AuthSDKConfig["features"],
+    };
+
+    const result = validateAuthConfig(config as AuthSDKConfig);
+
+    expect(result.valid).toBe(false);
+    expect(result.errors).toContain("auth.cookieDomain must start with a dot (e.g., .xynes.com)");
+  });
+
+  it("should reject URLs with non-http protocols", () => {
+    const config = {
+      supabase: {
+        url: "ftp://test.supabase.co",
+        anonKey: "test-key",
+      },
+      api: {
+        baseUrl: "https://api.example.com",
+      },
+      auth: {
+        appUrl: "https://auth.example.com",
+      },
+      features: {} as AuthSDKConfig["features"],
+    };
+
+    const result = validateAuthConfig(config as AuthSDKConfig);
+
+    expect(result.valid).toBe(false);
+    expect(result.errors).toContain("supabase.url must be a valid URL");
+  });
 });
