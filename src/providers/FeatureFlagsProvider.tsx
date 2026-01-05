@@ -7,7 +7,6 @@ import {
   useState,
   useCallback,
   useMemo,
-  type ReactNode,
 } from "react";
 import type {
   FeatureFlags,
@@ -23,7 +22,8 @@ import { DEFAULT_FEATURE_FLAGS } from "../types/feature-flags";
  * Feature flags provider props
  */
 export interface FeatureFlagsProviderProps {
-  children: ReactNode;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  children: any; // Using 'any' to avoid React version type conflicts between packages
   /**
    * API base URL for fetching flags
    * @example "http://localhost:4100"
