@@ -142,7 +142,11 @@ moduleRegistry.setEnabled(MODULE_IDS.INVITE, false);
 
 ### Feature Flags
 
-Enable/disable features at runtime:
+The SDK supports two feature flag systems:
+
+#### 1. Static Feature Flags (Config-based)
+
+Use static flags from configuration:
 
 ```tsx
 import { 
@@ -163,7 +167,99 @@ if (isFeatureEnabled(flags, 'enableMFA')) {
 }
 ```
 
-**Available Feature Flags:**
+#### 2. Dynamic Feature Flags (Backend-driven)
+
+Use the `FeatureFlagsProvider` to fetch flags from your backend API at runtime:
+
+```tsx
+// app/providers.tsx
+import { FeatureFlagsProvider } from '@xynes/auth-sdk';
+
+export function Providers({ children }: { children: React.ReactNode }) {
+  return (
+    <FeatureFlagsProvider
+      apiBaseUrl={process.env.NEXT_PUBLIC_API_URL}
+      pollingInterval={60000} // Optional: poll every 60s
+    >
+      {children}
+    </FeatureFlagsProvider>
+  );
+}
+```
+
+**Using Feature Flag Hooks:**
+
+```tsx
+import { 
+  useFeatureFlags, 
+  useFeatureFlag, 
+  useOAuthProviders, 
+  useMaintenanceMode 
+} from '@xynes/auth-sdk';
+
+// Get all flags
+const { flags, isLoading, error, refetch } = useFeatureFlags();
+
+// Get a single flag
+const mfaEnabled = useFeatureFlag('xynes_auth_mfa');
+
+// Get OAuth providers configuration
+const oauthProviders = useOAuthProviders();
+// Returns: { google: boolean, github: boolean, apple: boolean }
+
+// Check maintenance mode
+const isMaintenanceMode = useMaintenanceMode();
+```
+
+**Provider Props:**
+
+| Prop | Type | Description |
+|------|------|-------------|
+| `apiBaseUrl` | `string` | Base URL for the `/flags` endpoint |
+| `initialFlags` | `FeatureFlags` | Optional initial flag values |
+| `pollingInterval` | `number` | Optional polling interval in ms (0 to disable) |
+| `authToken` | `string` | Optional auth token for the API request |
+
+**Backend API Contract:**
+
+Your backend should expose a `GET /flags` endpoint that returns:
+
+```json
+{
+  "flags": {
+    "xynes_auth_oauth_google": true,
+    "xynes_auth_oauth_github": true,
+    "xynes_auth_oauth_apple": false,
+    "xynes_auth_email_signup": true,
+    "xynes_auth_mfa": false,
+    "xynes_maintenance_mode": false
+    // ... other flags
+  }
+}
+```
+
+**Available Backend Feature Flags:**
+
+| Category | Flag | Default |
+|----------|------|---------|
+| OAuth | `xynes_auth_oauth_google` | `false` |
+| OAuth | `xynes_auth_oauth_github` | `false` |
+| OAuth | `xynes_auth_oauth_apple` | `false` |
+| Auth | `xynes_auth_email_signup` | `true` |
+| Auth | `xynes_auth_password_reset` | `true` |
+| Auth | `xynes_auth_mfa` | `false` |
+| Auth | `xynes_auth_remember_me` | `true` |
+| Auth | `xynes_auth_session_management` | `false` |
+| Auth | `xynes_auth_rate_limit_ui` | `true` |
+| Auth | `xynes_auth_profile_edit` | `true` |
+| Workspace | `xynes_workspace_creation` | `true` |
+| Workspace | `xynes_workspace_switching` | `true` |
+| Workspace | `xynes_workspace_multiple` | `true` |
+| Invite | `xynes_invite_enabled` | `true` |
+| Invite | `xynes_invite_revocation` | `true` |
+| System | `xynes_maintenance_mode` | `false` |
+
+**Static Feature Flags (Config-based):**
 
 | Category | Flag | Default |
 |----------|------|---------|
@@ -345,13 +441,18 @@ pnpm lint
 src/
 ├── core/          # Core SDK infrastructure
 │   ├── config.ts       # SDK configuration
-│   ├── feature-flags.ts # Feature flags system
+│   ├── feature-flags.ts # Static feature flags system
 │   └── module-registry.ts # Plugin architecture
 ├── api/           # API clients (AccountsClient)
 ├── components/    # React components (AuthGuard)
 ├── hooks/         # React hooks (useInvite, useWorkspaces)
-├── providers/     # Context providers (AuthProvider, WorkspaceProvider)
+├── providers/     # Context providers
+│   ├── AuthProvider.tsx      # Authentication context
+│   ├── WorkspaceProvider.tsx # Workspace context
+│   └── FeatureFlagsProvider.tsx # Dynamic feature flags context
 ├── types/         # TypeScript type definitions
+│   ├── feature-flags.ts # Backend feature flag types
+│   └── ...             # Other type definitions
 └── utils/         # Pure utilities (validation, errors, redirect)
 ```
 

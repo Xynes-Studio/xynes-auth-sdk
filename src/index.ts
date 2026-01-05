@@ -40,7 +40,18 @@ export type {
 // ─────────────────────────────────────────────────────────────────
 export { AuthProvider, useAuth } from "./providers/AuthProvider";
 export { WorkspaceProvider, useWorkspace } from "./providers/WorkspaceProvider";
-export type { AuthProviderProps, WorkspaceProviderProps } from "./providers";
+export {
+  FeatureFlagsProvider,
+  useFeatureFlags,
+  useFeatureFlag,
+  useOAuthProviders,
+  useMaintenanceMode,
+} from "./providers/FeatureFlagsProvider";
+export type {
+  AuthProviderProps,
+  WorkspaceProviderProps,
+  FeatureFlagsProviderProps,
+} from "./providers";
 
 // ─────────────────────────────────────────────────────────────────
 // HOOKS (lazy-loaded internally)
@@ -106,3 +117,14 @@ export type {
   AuthResult,
   BootstrapResponse,
 } from "./types";
+
+// Feature Flags Types
+export type {
+  FeatureFlags,
+  FeatureFlagsResponse,
+  FeatureFlagKey,
+  FeatureFlagsState,
+  FeatureFlagsContextValue,
+  OAuthProviderConfig,
+} from "./types/feature-flags";
+export { DEFAULT_FEATURE_FLAGS } from "./types/feature-flags";
