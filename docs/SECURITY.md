@@ -13,7 +13,7 @@ The SDK provides a centralized configuration for secure cookies to ensure protec
 | `httpOnly` | `true` | Prevents JavaScript access to cookies (mitigates XSS) |
 | `secure` | `true` (prod) | Ensures cookies are only sent over HTTPS |
 | `sameSite` | `'lax'` | Provides CSRF protection while allowing top-level navigation |
-| `domain` | `.xynes.com` | Allows cookie sharing across subdomains |
+| `domain` | `.xynes.com` (prod) | Allows cookie sharing across subdomains (undefined in dev for localhost) |
 | `maxAge` | 7 days | Matches session duration |
 
 ### Usage

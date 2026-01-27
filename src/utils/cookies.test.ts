@@ -33,11 +33,12 @@ describe('getCookieOptions', () => {
     expect(options.domain).toBe('.xynes.com');
   });
 
-  it('should not be secure in development', () => {
+  it('should not be secure and use host-only domain in development', () => {
     vi.stubEnv('NODE_ENV', 'development');
     
     const options = getCookieOptions();
     expect(options.secure).toBe(false);
+    expect(options.domain).toBeUndefined();
   });
 
   it('should allow overriding defaults', () => {
