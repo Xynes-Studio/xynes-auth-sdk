@@ -13,6 +13,8 @@ const ERROR_MESSAGES: Record<AuthErrorCode, string> = {
   network_error: "Unable to connect. Please check your internet connection.",
   session_expired: "Your session has expired. Please sign in again.",
   rate_limited: "Too many attempts. Please wait a moment and try again.",
+  invite_not_found: "This invitation is invalid or has expired.",
+  already_in_workspace: "You are already a member of this workspace.",
   unknown_error: "An unexpected error occurred. Please try again.",
 };
 
@@ -47,6 +49,10 @@ const ERROR_CODE_MAP: Record<string, AuthErrorCode> = {
   network: "network_error",
   "session expired": "session_expired",
   "rate limit": "rate_limited",
+  "invite not found": "invite_not_found",
+  "invitation not found": "invite_not_found",
+  "already a member": "already_in_workspace",
+  "already in workspace": "already_in_workspace",
 };
 
 /**

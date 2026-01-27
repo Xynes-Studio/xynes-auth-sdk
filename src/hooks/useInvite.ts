@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback, useMemo } from "react";
 import type { WorkspaceInvite, Workspace, AuthError } from "../types";
 import { AccountsClient } from "../api/accounts-client";
-import { normalizeAuthError } from "../utils/errors";
+import { normalizeAuthError, getErrorMessage } from "../utils/errors";
 import { useAuth } from "../providers/AuthProvider";
 
 /**
@@ -60,8 +60,21 @@ export function useInvite(
         setInvite(resolvedInvite);
       })
       .catch((err) => {
-        const authError = normalizeAuthError(err);
-        setError(authError);
+        // Safely check for status code (handle network errors/standard Error objects)
+        if (
+          typeof err === "object" &&
+          err !== null &&
+          "statusCode" in err &&
+          (err as { statusCode: number }).statusCode === 404
+        ) {
+          setError({
+            code: "invite_not_found",
+            message: getErrorMessage("invite_not_found"),
+          });
+        } else {
+          const authError = normalizeAuthError(err);
+          setError(authError);
+        }
       })
       .finally(() => {
         setIsLoading(false);

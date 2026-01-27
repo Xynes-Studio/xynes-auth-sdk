@@ -86,6 +86,8 @@ export type AuthErrorCode =
   | "network_error"
   | "session_expired"
   | "rate_limited"
+  | "invite_not_found"
+  | "already_in_workspace"
   | "unknown_error";
 
 /**
