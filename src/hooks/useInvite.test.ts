@@ -49,6 +49,7 @@ describe("useInvite", () => {
       refreshSession: vi.fn(),
       redirectToLogin: vi.fn(),
       redirectToSignup: vi.fn(),
+      getAccessToken: vi.fn(),
     });
   });
 
@@ -168,6 +169,7 @@ describe("useInvite", () => {
       refreshSession: vi.fn(),
       redirectToLogin: vi.fn(),
       redirectToSignup: vi.fn(),
+      getAccessToken: vi.fn(),
     });
 
     mockResolveInvite.mockResolvedValueOnce(mockInvite);
@@ -211,6 +213,7 @@ describe("useInvite", () => {
       refreshSession: vi.fn(),
       redirectToLogin: vi.fn(),
       redirectToSignup: vi.fn(),
+      getAccessToken: vi.fn(),
     });
 
     mockResolveInvite.mockResolvedValueOnce(mockInvite);
