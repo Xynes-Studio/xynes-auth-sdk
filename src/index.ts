@@ -61,6 +61,19 @@ export { useWorkspaces } from "./hooks/useWorkspaces";
 export type { UseInviteResult, UseWorkspacesResult } from "./hooks";
 
 // ─────────────────────────────────────────────────────────────────
+// WORKSPACE UTILITIES (for building custom workspace switchers)
+// ─────────────────────────────────────────────────────────────────
+export {
+  getWorkspaceInitials,
+  formatWorkspaceRole,
+  sortWorkspacesForSwitcher,
+  getOtherWorkspaces,
+  sanitizeWorkspaceSlug,
+  buildWorkspaceDashboardUrl,
+  getWorkspaceSwitcherAriaLabel,
+} from "./modules/workspace/utils";
+
+// ─────────────────────────────────────────────────────────────────
 // API CLIENT
 // ─────────────────────────────────────────────────────────────────
 export { AccountsClient, createAccountsClient } from "./api/accounts-client";
