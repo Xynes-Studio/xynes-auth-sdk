@@ -88,6 +88,27 @@ export {
 } from "./utils/errors";
 
 // ─────────────────────────────────────────────────────────────────
+// LOADING STATE UTILITIES (AUTH-FE-1.8)
+// ─────────────────────────────────────────────────────────────────
+export {
+  createLoadingState,
+  createIdleState,
+  isLoadingActive,
+  requiresFullPageLoading,
+  getLoadingAnnouncement,
+  mergeLoadingStates,
+  getButtonLoadingText,
+  LOADING_STATES,
+  BUTTON_LOADING_TEXT,
+} from "./utils/loading";
+export type {
+  LoadingStateType,
+  LoadingState,
+  LoadingStateConfig,
+  ButtonLoadingKey,
+} from "./utils/loading";
+
+// ─────────────────────────────────────────────────────────────────
 // VALIDATION SCHEMAS
 // ─────────────────────────────────────────────────────────────────
 export {
