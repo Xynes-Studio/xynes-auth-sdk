@@ -36,6 +36,7 @@ interface AuthContextValue extends AuthState {
   redirectToLogin: (returnUrl?: string) => void;
   redirectToSignup: (returnUrl?: string) => void;
   refreshSession: () => Promise<void>;
+  getAccessToken: () => Promise<string | null>;
 }
 
 const AuthContext = createContext<AuthContextValue | null>(null);
@@ -73,16 +74,18 @@ export function AuthProvider({
     return createBrowserClient(config.supabaseUrl, config.supabaseKey);
   }, [config.supabaseUrl, config.supabaseKey]);
 
+  const getAccessToken = useCallback(async (): Promise<string | null> => {
+    const { data } = await supabase.auth.getSession();
+    return data.session?.access_token ?? null;
+  }, [supabase]);
+
   // Create accounts API client
   const accountsClient = useMemo(() => {
     return new AccountsClient({
       baseUrl: config.apiBaseUrl,
-      getAccessToken: async () => {
-        const { data } = await supabase.auth.getSession();
-        return data.session?.access_token ?? null;
-      },
+      getAccessToken,
     });
-  }, [config.apiBaseUrl, supabase]);
+  }, [config.apiBaseUrl, getAccessToken]);
 
   /**
    * Bootstrap user from accounts service
@@ -339,6 +342,7 @@ export function AuthProvider({
       redirectToLogin,
       redirectToSignup,
       refreshSession,
+      getAccessToken,
     }),
     [
       state,
@@ -349,6 +353,7 @@ export function AuthProvider({
       redirectToLogin,
       redirectToSignup,
       refreshSession,
+      getAccessToken,
     ]
   );
 

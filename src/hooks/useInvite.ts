@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import type { WorkspaceInvite, Workspace, AuthError } from "../types";
 import { AccountsClient } from "../api/accounts-client";
 import { normalizeAuthError } from "../utils/errors";
@@ -27,17 +27,21 @@ export function useInvite(
   token: string | null,
   apiBaseUrl: string
 ): UseInviteResult {
-  const { isAuthenticated } = useAuth();
+  const { isAuthenticated, getAccessToken } = useAuth();
   const [invite, setInvite] = useState<WorkspaceInvite | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [isAccepting, setIsAccepting] = useState(false);
   const [error, setError] = useState<AuthError | null>(null);
 
-  // Create accounts client for public endpoint (resolve)
-  const accountsClient = new AccountsClient({
-    baseUrl: apiBaseUrl,
-    getAccessToken: async () => null, // No auth needed for resolve
-  });
+  // Create accounts client
+  const accountsClient = useMemo(
+    () =>
+      new AccountsClient({
+        baseUrl: apiBaseUrl,
+        getAccessToken,
+      }),
+    [apiBaseUrl, getAccessToken]
+  );
 
   // Resolve invite on mount or token change
   useEffect(() => {
@@ -76,9 +80,6 @@ export function useInvite(
     setError(null);
 
     try {
-      // For accepting, we need auth, so we import from provider context
-      // This is a simplified version - in real implementation,
-      // you'd get the token from the auth context
       const workspace = await accountsClient.acceptInvite(token);
       return workspace;
     } catch (err) {
