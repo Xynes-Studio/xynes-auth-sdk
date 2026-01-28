@@ -27,7 +27,7 @@ export const passwordSchema = z.string()
   .regex(/[a-z]/, "Password must contain at least one lowercase letter")
   .regex(/[0-9]/, "Password must contain at least one number");
 
-export const workspaceNameSchema = z.string().min(2, "Workspace name too short").max(100, "Workspace name too long").trim();
+export const workspaceNameSchema = z.string().transform(s => s.trim()).pipe(z.string().min(2, "Workspace name too short").max(100, "Workspace name too long"));
 
 export const workspaceSlugSchema = z.string()
   .min(3, "Slug must be at least 3 characters")
