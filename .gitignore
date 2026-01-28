@@ -28,3 +28,4 @@ pnpm-debug.log*
 # Lock files for other package managers
 package-lock.json
 yarn.lock
+tmp/

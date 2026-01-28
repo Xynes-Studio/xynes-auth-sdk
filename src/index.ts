@@ -95,8 +95,11 @@ export {
   buildAuthRedirectUrl,
 } from "./utils/redirect";
 
+
 export { getCsrfToken } from "./utils/csrf";
+export { sanitizeHtml, escapeHtml } from "./utils/sanitize";
 export { useRateLimit } from "./modules/security/useRateLimit";
+
 
 export {
   normalizeAuthError,
@@ -133,6 +136,10 @@ export {
   validatePassword,
   getPasswordStrength,
   PASSWORD_STRENGTH_CONFIG,
+  emailSchema,
+  passwordSchema,
+  workspaceNameSchema,
+  workspaceSlugSchema,
 } from "./utils/validation";
 export type { PasswordStrength, ValidationResult } from "./utils/validation";
 
