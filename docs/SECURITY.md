@@ -70,3 +70,44 @@ const token = getCsrfToken();
 - **Cookie Name:** `csrf_token`
 - **Header Name:** `x-csrf-token`
 - **Meta Tag:** `csrf-token`
+
+## Rate Limit Handling (SEC-FE-1.4)
+
+The SDK provides a global mechanism for handling API rate limits (429 Too Many Requests).
+
+### How it Works
+
+1. **Interceptor:**
+   - Detects `429` status codes in API responses.
+   - Parses the `Retry-After` header (supports both integer seconds and HTTP-date).
+   - Triggers the global rate limit store with the cooldown duration.
+
+2. **Store & Hook:**
+   - `rateLimitStore` manages the state and countdown timer.
+   - `useRateLimit` hook exposes the state (`isRateLimited`, `remainingSeconds`) to UI components.
+
+3. **UI Overlay:**
+   - A global `RateLimitOverlay` component is listening to the store.
+   - When active, it displays a blocking modal with a countdown.
+   - The "Try Again" button is disabled until the cooldown expires.
+
+### Usage
+
+The handling is automatic for all requests made via `AccountsClient`.
+
+To manually trigger a rate limit (e.g., from a different client):
+
+```typescript
+import { rateLimitStore } from '@xynes/auth-sdk/modules/security/rate-limit'; // Internal import if needed
+
+// Trigger a 60 second block
+rateLimitStore.trigger(60);
+```
+
+To use the hook in a custom component:
+
+```typescript
+import { useRateLimit } from '@xynes/auth-sdk';
+
+const { isRateLimited, remainingSeconds } = useRateLimit();
+```

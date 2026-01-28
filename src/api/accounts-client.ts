@@ -1,5 +1,6 @@
 import type { BootstrapResponse, Workspace, WorkspaceInvite } from "../types";
 import { attachCsrfToken } from "./interceptors/csrf-interceptor";
+import { handleRateLimitResponse } from "./interceptors/rate-limit-interceptor";
 
 /**
  * Accounts API Client configuration
@@ -56,6 +57,8 @@ export class AccountsClient {
     });
 
     if (!response.ok) {
+      handleRateLimitResponse(response);
+      
       const error: ApiError = await response.json().catch(() => ({
         statusCode: response.status,
         message: response.statusText,
@@ -107,6 +110,8 @@ export class AccountsClient {
     const response = await fetch(`${this.baseUrl}/workspace-invites/${token}`);
 
     if (!response.ok) {
+      handleRateLimitResponse(response);
+
       const error: ApiError = await response.json().catch(() => ({
         statusCode: response.status,
         message: response.statusText,

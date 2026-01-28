@@ -85,6 +85,7 @@ export type { AccountsClientConfig, ApiError } from "./api";
 export { AuthGuard } from "./components/AuthGuard";
 export type { AuthGuardProps } from "./components";
 
+
 // ─────────────────────────────────────────────────────────────────
 // SECURITY UTILITIES
 // ─────────────────────────────────────────────────────────────────
@@ -95,6 +96,7 @@ export {
 } from "./utils/redirect";
 
 export { getCsrfToken } from "./utils/csrf";
+export { useRateLimit } from "./modules/security/useRateLimit";
 
 export {
   normalizeAuthError,
