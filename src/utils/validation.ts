@@ -13,81 +13,60 @@ export interface ValidationResult {
   error?: string;
 }
 
-/**
- * Email validation regex (RFC 5322 simplified)
- */
-const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+// ─────────────────────────────────────────────────────────────────
+// Zod Schemas
+// ─────────────────────────────────────────────────────────────────
+
+export const emailSchema = z.string().email("Please enter a valid email address").max(255, "Email is too long");
+
+export const passwordSchema = z.string()
+  .min(8, "Password must be at least 8 characters")
+  .max(128, "Password is too long")
+  .regex(/[A-Z]/, "Password must contain at least one uppercase letter")
+  .regex(/[a-z]/, "Password must contain at least one lowercase letter")
+  .regex(/[0-9]/, "Password must contain at least one number");
+
+export const workspaceNameSchema = z.string().min(2, "Workspace name too short").max(100, "Workspace name too long").trim();
+
+export const workspaceSlugSchema = z.string()
+  .min(3, "Slug must be at least 3 characters")
+  .max(50, "Slug must be less than 50 chars")
+  .regex(/^[a-z][a-z0-9-]*[a-z0-9]$/, 'Invalid slug format (lowercase, numbers, hyphens only, cannot start/end with hyphen)')
+  .refine(s => !s.includes('--'), 'No consecutive hyphens');
+
+// ─────────────────────────────────────────────────────────────────
+// Validation Functions (Wrappers around schemas for legacy compatibility)
+// ─────────────────────────────────────────────────────────────────
 
 /**
- * Minimum password length
- */
-const MIN_PASSWORD_LENGTH = 8;
-
-/**
- * Validates an email address
- *
- * @param email - The email to validate
- * @returns Validation result with error message if invalid
+ * Validates an email address using Zod schema
  */
 export function validateEmail(email: string): ValidationResult {
   if (!email || email.trim() === "") {
     return { isValid: false, error: "Email is required" };
   }
-
-  if (!EMAIL_REGEX.test(email)) {
-    return { isValid: false, error: "Please enter a valid email address" };
-  }
-
-  return { isValid: true };
+  
+  const result = emailSchema.safeParse(email);
+  return result.success 
+    ? { isValid: true }
+    : { isValid: false, error: result.error.issues[0].message };
 }
 
 /**
- * Validates a password against security requirements
- *
- * Requirements:
- * - At least 8 characters
- * - At least one uppercase letter
- * - At least one lowercase letter
- * - At least one number
- *
- * @param password - The password to validate
- * @returns Validation result with error message if invalid
+ * Validates a password using Zod schema
  */
 export function validatePassword(password: string): ValidationResult {
   if (!password || password === "") {
     return { isValid: false, error: "Password is required" };
   }
 
-  if (password.length < MIN_PASSWORD_LENGTH) {
-    return {
-      isValid: false,
-      error: `Password must be at least ${MIN_PASSWORD_LENGTH} characters`,
-    };
-  }
-
-  if (!/[A-Z]/.test(password)) {
-    return {
-      isValid: false,
-      error: "Password must contain at least one uppercase letter",
-    };
-  }
-
-  if (!/[a-z]/.test(password)) {
-    return {
-      isValid: false,
-      error: "Password must contain at least one lowercase letter",
-    };
-  }
-
-  if (!/[0-9]/.test(password)) {
-    return {
-      isValid: false,
-      error: "Password must contain at least one number",
-    };
-  }
-
-  return { isValid: true };
+  const result = passwordSchema.safeParse(password);
+  return result.success 
+    ? { isValid: true }
+    : { isValid: false, error: result.error.issues[0].message };
 }
+
 
 /**
  * Calculates password strength for UI feedback
@@ -144,16 +123,5 @@ export const PASSWORD_STRENGTH_CONFIG: Record<
   strong: { label: "Strong", color: "bg-green-500", percentage: 100 },
 };
 
-// ─────────────────────────────────────────────────────────────────
-// Zod Schemas
-// ─────────────────────────────────────────────────────────────────
 
-export const emailSchema = z.string().email("Invalid email address").max(255, "Email is too long");
-export const passwordSchema = z.string().min(8, "Password must be at least 8 characters").max(128, "Password is too long");
-export const workspaceNameSchema = z.string().min(2, "Workspace name too short").max(100, "Workspace name too long").trim();
-export const workspaceSlugSchema = z.string()
-  .min(3, "Slug must be at least 3 characters")
-  .max(50, "Slug must be less than 50 chars")
-  .regex(/^[a-z][a-z0-9-]*[a-z0-9]$/, 'Invalid slug format (lowercase, numbers, hyphens only, cannot start/end with hyphen)')
-  .refine(s => !s.includes('--'), 'No consecutive hyphens');
 

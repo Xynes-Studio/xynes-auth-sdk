@@ -121,7 +121,7 @@ describe("Zod Schemas", () => {
 
   describe("passwordSchema", () => {
     it("validates correct passwords", () => {
-      expect(passwordSchema.safeParse("password123").success).toBe(true);
+      expect(passwordSchema.safeParse("Password123").success).toBe(true);
     });
     it("rejects short passwords", () => {
       expect(passwordSchema.safeParse("short").success).toBe(false);
