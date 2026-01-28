@@ -41,7 +41,11 @@ class RateLimitStore {
       clearTimeout(this.timer);
     }
 
-    const retryAfter = Date.now() + waitSeconds * 1000;
+    // Cap at 24 hours to prevent setTimeout overflow (max 32-bit int is ~24 days)
+    // and to handle potentially malicious/buggy headers.
+    const safeWaitSeconds = Math.min(Math.max(1, waitSeconds), 86400);
+
+    const retryAfter = Date.now() + safeWaitSeconds * 1000;
     
     this.update({
       isRateLimited: true,
@@ -52,7 +56,7 @@ class RateLimitStore {
     // Auto-reset when time is up
     this.timer = setTimeout(() => {
       this.reset();
-    }, waitSeconds * 1000);
+    }, safeWaitSeconds * 1000);
   }
 
   reset() {
