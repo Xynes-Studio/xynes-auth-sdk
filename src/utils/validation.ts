@@ -1,3 +1,5 @@
+import { z } from 'zod';
+
 /**
  * Password strength levels
  */
@@ -141,3 +143,17 @@ export const PASSWORD_STRENGTH_CONFIG: Record<
   good: { label: "Good", color: "bg-blue-500", percentage: 75 },
   strong: { label: "Strong", color: "bg-green-500", percentage: 100 },
 };
+
+// ─────────────────────────────────────────────────────────────────
+// Zod Schemas
+// ─────────────────────────────────────────────────────────────────
+
+export const emailSchema = z.string().email("Invalid email address").max(255, "Email is too long");
+export const passwordSchema = z.string().min(8, "Password must be at least 8 characters").max(128, "Password is too long");
+export const workspaceNameSchema = z.string().min(2, "Workspace name too short").max(100, "Workspace name too long").trim();
+export const workspaceSlugSchema = z.string()
+  .min(3, "Slug must be at least 3 characters")
+  .max(50, "Slug must be less than 50 chars")
+  .regex(/^[a-z][a-z0-9-]*[a-z0-9]$/, 'Invalid slug format (lowercase, numbers, hyphens only, cannot start/end with hyphen)')
+  .refine(s => !s.includes('--'), 'No consecutive hyphens');
+

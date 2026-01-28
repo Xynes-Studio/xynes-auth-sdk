@@ -3,6 +3,10 @@ import {
   validateEmail,
   validatePassword,
   getPasswordStrength,
+  emailSchema,
+  passwordSchema,
+  workspaceNameSchema,
+  workspaceSlugSchema,
 } from "./validation";
 
 describe("validation utilities", () => {
@@ -99,6 +103,59 @@ describe("validation utilities", () => {
 
     it("should handle empty strings", () => {
       expect(getPasswordStrength("")).toBe("weak");
+    });
+  });
+});
+
+
+describe("Zod Schemas", () => {
+  describe("emailSchema", () => {
+    it("validates correct emails", () => {
+      expect(emailSchema.safeParse("test@example.com").success).toBe(true);
+    });
+    it("rejects invalid emails", () => {
+      expect(emailSchema.safeParse("invalid").success).toBe(false);
+      expect(emailSchema.safeParse("").success).toBe(false);
+    });
+  });
+
+  describe("passwordSchema", () => {
+    it("validates correct passwords", () => {
+      expect(passwordSchema.safeParse("password123").success).toBe(true);
+    });
+    it("rejects short passwords", () => {
+      expect(passwordSchema.safeParse("short").success).toBe(false);
+    });
+  });
+
+  describe("workspaceNameSchema", () => {
+    it("validates correct names", () => {
+      expect(workspaceNameSchema.safeParse("My Workspace").success).toBe(true);
+    });
+    it("rejects too short names", () => {
+      expect(workspaceNameSchema.safeParse("A").success).toBe(false);
+    });
+    it("trims whitespace", () => {
+      const result = workspaceNameSchema.safeParse("  My  ");
+      expect(result.success).toBe(true);
+      if (result.success) expect(result.data).toBe("My");
+    });
+  });
+
+  describe("workspaceSlugSchema", () => {
+    it("validates correct slugs", () => {
+      expect(workspaceSlugSchema.safeParse("my-slug-1").success).toBe(true);
+    });
+    it("rejects invalid characters", () => {
+      expect(workspaceSlugSchema.safeParse("My Slug").success).toBe(false);
+      expect(workspaceSlugSchema.safeParse("slug_1").success).toBe(false);
+    });
+    it("rejects consecutive hyphens", () => {
+      expect(workspaceSlugSchema.safeParse("my--slug").success).toBe(false);
+    });
+    it("rejects start/end hyphens", () => {
+      expect(workspaceSlugSchema.safeParse("-slug").success).toBe(false);
+      expect(workspaceSlugSchema.safeParse("slug-").success).toBe(false);
     });
   });
 });
