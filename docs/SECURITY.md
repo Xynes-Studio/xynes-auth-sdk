@@ -111,3 +111,43 @@ import { useRateLimit } from '@xynes/auth-sdk';
 
 const { isRateLimited, remainingSeconds } = useRateLimit();
 ```
+
+## Input Sanitization & Validation (SEC-FE-1.6)
+
+The SDK provides utilities to sanitize user input and validate common form fields to prevent XSS and ensure data integrity.
+
+### HTML Sanitization
+
+We use `DOMPurify` to sanitize HTML content. This is useful when you need to render user-provided HTML (though this should be avoided when possible).
+
+```typescript
+import { sanitizeHtml, escapeHtml } from '@xynes/auth-sdk';
+
+// Strips dangerous tags (like <script>) (strips ALL tags by default configuration for maximum safety unless configured otherwise)
+const safeHtml = sanitizeHtml('<script>alert(1)</script><p>Hello</p>'); 
+
+// Escapes HTML entities for rendering as text
+const escaped = escapeHtml('<script>alert(1)</script>'); // Output: &lt;script&gt;alert(1)&lt;/script&gt;
+```
+
+### Input Validation (Zod Schemas)
+
+We export ready-to-use Zod schemas for consistency across the application.
+
+```typescript
+import { 
+  emailSchema, 
+  passwordSchema, 
+  workspaceNameSchema, 
+  workspaceSlugSchema 
+} from '@xynes/auth-sdk';
+
+// Validate email
+const emailResult = emailSchema.safeParse('user@example.com');
+if (emailResult.success) {
+  console.log('Valid email');
+}
+
+// Validate password (min 8 chars, max 128)
+const passwordResult = passwordSchema.safeParse('MySecurePass123!');
+```
