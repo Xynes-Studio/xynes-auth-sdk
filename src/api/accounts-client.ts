@@ -1,4 +1,5 @@
 import type { BootstrapResponse, Workspace, WorkspaceInvite } from "../types";
+import { attachCsrfToken } from "./interceptors/csrf-interceptor";
 
 /**
  * Accounts API Client configuration
@@ -38,9 +39,11 @@ export class AccountsClient {
   ): Promise<T> {
     const token = await this.getAccessToken();
 
+    const normalizedHeaders = attachCsrfToken(options.headers || {});
+
     const headers: HeadersInit = {
       "Content-Type": "application/json",
-      ...options.headers,
+      ...normalizedHeaders,
     };
 
     if (token) {

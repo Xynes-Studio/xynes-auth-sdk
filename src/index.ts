@@ -94,6 +94,8 @@ export {
   buildAuthRedirectUrl,
 } from "./utils/redirect";
 
+export { getCsrfToken } from "./utils/csrf";
+
 export {
   normalizeAuthError,
   isRetryableError,
