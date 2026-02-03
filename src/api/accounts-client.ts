@@ -2,6 +2,22 @@ import type { BootstrapResponse, Workspace, WorkspaceInvite } from "../types";
 import { attachCsrfToken } from "./interceptors/csrf-interceptor";
 import { handleRateLimitResponse } from "./interceptors/rate-limit-interceptor";
 
+function unwrapGatewayEnvelope(value: unknown): unknown {
+  // Some environments wrap responses in one or more `{ ok, data, meta }` envelopes.
+  // We unwrap `data` recursively so SDK consumers receive the shape they expect.
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  let current: any = value;
+  while (
+    current &&
+    typeof current === "object" &&
+    "data" in current &&
+    current.data !== undefined
+  ) {
+    current = current.data;
+  }
+  return current;
+}
+
 /**
  * Accounts API Client configuration
  */
@@ -36,7 +52,7 @@ export class AccountsClient {
    */
   private async request<T>(
     path: string,
-    options: RequestInit = {}
+    options: RequestInit = {},
   ): Promise<T> {
     const token = await this.getAccessToken();
 
@@ -58,7 +74,7 @@ export class AccountsClient {
 
     if (!response.ok) {
       handleRateLimitResponse(response);
-      
+
       const error: ApiError = await response.json().catch(() => ({
         statusCode: response.status,
         message: response.statusText,
@@ -71,7 +87,8 @@ export class AccountsClient {
       return undefined as T;
     }
 
-    return response.json();
+    const json = await response.json();
+    return unwrapGatewayEnvelope(json) as T;
   }
 
   /**
@@ -136,7 +153,7 @@ export class AccountsClient {
  * Factory function to create an AccountsClient instance
  */
 export function createAccountsClient(
-  config: AccountsClientConfig
+  config: AccountsClientConfig,
 ): AccountsClient {
   return new AccountsClient(config);
 }

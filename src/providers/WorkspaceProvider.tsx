@@ -40,7 +40,8 @@ export interface WorkspaceProviderProps {
  * WorkspaceProvider - manages workspace selection state
  */
 export function WorkspaceProvider({ children }: WorkspaceProviderProps) {
-  const { workspaces, isLoading: authLoading } = useAuth();
+  const { workspaces: authWorkspaces, isLoading: authLoading } = useAuth();
+  const workspaces = authWorkspaces ?? [];
   const [selectedWorkspaceId, setSelectedWorkspaceId] = useState<string | null>(
     null
   );
