@@ -203,6 +203,10 @@ export function AuthProvider({
       });
 
       const { bootstrap, unauthorized } = await bootstrapUser();
+      const currentToken = sessionRef.current?.access_token ?? null;
+      if (currentToken !== token) {
+        return;
+      }
 
       if (bootstrap) {
         const safeWorkspaces = Array.isArray(bootstrap.workspaces)

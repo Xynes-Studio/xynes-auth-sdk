@@ -350,6 +350,87 @@ describe("AuthProvider", () => {
       });
     });
 
+    it("should ignore stale bootstrap results when a newer session arrives", async () => {
+      const sessionA: Session = {
+        ...mockSession,
+        access_token: "token-a",
+        user: { ...mockSession.user, id: "user-a", email: "a@test.com" },
+      };
+      const sessionB: Session = {
+        ...mockSession,
+        access_token: "token-b",
+        user: { ...mockSession.user, id: "user-b", email: "b@test.com" },
+      };
+
+      mockGetSession.mockResolvedValue({ data: { session: sessionA } });
+
+      const deferredA: {
+        promise: Promise<{ user: typeof mockUser; workspaces: typeof mockWorkspace[] }>;
+        resolve: (value: { user: typeof mockUser; workspaces: typeof mockWorkspace[] }) => void;
+      } = (() => {
+        let resolve!: (value: { user: typeof mockUser; workspaces: typeof mockWorkspace[] }) => void;
+        const promise = new Promise<{ user: typeof mockUser; workspaces: typeof mockWorkspace[] }>(
+          (res) => {
+            resolve = res;
+          }
+        );
+        return { promise, resolve };
+      })();
+
+      const deferredB: {
+        promise: Promise<{ user: typeof mockUser; workspaces: typeof mockWorkspace[] }>;
+        resolve: (value: { user: typeof mockUser; workspaces: typeof mockWorkspace[] }) => void;
+      } = (() => {
+        let resolve!: (value: { user: typeof mockUser; workspaces: typeof mockWorkspace[] }) => void;
+        const promise = new Promise<{ user: typeof mockUser; workspaces: typeof mockWorkspace[] }>(
+          (res) => {
+            resolve = res;
+          }
+        );
+        return { promise, resolve };
+      })();
+
+      mockGetMe
+        .mockImplementationOnce(() => deferredA.promise)
+        .mockImplementationOnce(() => deferredB.promise);
+
+      renderWithProvider();
+
+      await waitFor(() => {
+        expect(mockGetMe).toHaveBeenCalledTimes(1);
+      });
+
+      act(() => {
+        authStateChangeCallback?.("SIGNED_IN", sessionB);
+      });
+
+      await waitFor(() => {
+        expect(mockGetMe).toHaveBeenCalledTimes(2);
+      });
+
+      await act(async () => {
+        deferredB.resolve({
+          user: { ...mockUser, email: "b@test.com" },
+          workspaces: [{ ...mockWorkspace, id: "ws-b" }],
+        });
+      });
+
+      await waitFor(() => {
+        expect(screen.getByTestId("user")).toHaveTextContent("b@test.com");
+      });
+
+      await act(async () => {
+        deferredA.resolve({
+          user: { ...mockUser, email: "a@test.com" },
+          workspaces: [{ ...mockWorkspace, id: "ws-a" }],
+        });
+      });
+
+      await waitFor(() => {
+        expect(screen.getByTestId("user")).toHaveTextContent("b@test.com");
+      });
+    });
+
     it("should handle bootstrap failure gracefully", async () => {
       mockGetSession.mockResolvedValue({ data: { session: mockSession } });
       mockGetMe.mockRejectedValue(new Error("Network error"));
