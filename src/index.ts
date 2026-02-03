@@ -85,7 +85,6 @@ export type { AccountsClientConfig, ApiError } from "./api";
 export { AuthGuard } from "./components/AuthGuard";
 export type { AuthGuardProps } from "./components";
 
-
 // ─────────────────────────────────────────────────────────────────
 // SECURITY UTILITIES
 // ─────────────────────────────────────────────────────────────────
@@ -95,11 +94,9 @@ export {
   buildAuthRedirectUrl,
 } from "./utils/redirect";
 
-
 export { getCsrfToken } from "./utils/csrf";
 export { sanitizeHtml, escapeHtml } from "./utils/sanitize";
 export { useRateLimit } from "./modules/security/useRateLimit";
-
 
 export {
   normalizeAuthError,
@@ -173,3 +170,4 @@ export type {
   OAuthProviderConfig,
 } from "./types/feature-flags";
 export { DEFAULT_FEATURE_FLAGS } from "./types/feature-flags";
+export { normalizeFeatureFlags } from "./utils/feature-flags";
