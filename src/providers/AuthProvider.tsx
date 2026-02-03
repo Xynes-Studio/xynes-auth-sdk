@@ -7,6 +7,7 @@ import {
   useState,
   useCallback,
   useMemo,
+  useRef,
   type ReactNode,
 } from "react";
 import { createBrowserClient } from "@supabase/ssr";
@@ -68,6 +69,24 @@ export function AuthProvider({
     isAuthenticated: false,
     error: null,
   });
+  const stateRef = useRef<AuthState>({
+    user: null,
+    workspaces: [],
+    isLoading: true,
+    isAuthenticated: false,
+    error: null,
+  });
+
+  // Track the latest session to avoid access-token races when bootstrapping.
+  const sessionRef = useRef<Session | null>(initialSession ?? null);
+  const lastSuccessfulBootstrapTokenRef = useRef<string | null>(null);
+  const bootstrapInFlightRef = useRef<{
+    token: string | null;
+    promise: Promise<{
+      bootstrap: { user: User; workspaces: Workspace[] } | null;
+      unauthorized: boolean;
+    }> | null;
+  }>({ token: null, promise: null });
 
   // Create Supabase client
   const supabase = useMemo<SupabaseClient>(() => {
@@ -75,6 +94,10 @@ export function AuthProvider({
   }, [config.supabaseUrl, config.supabaseKey]);
 
   const getAccessToken = useCallback(async (): Promise<string | null> => {
+    // Prefer the in-memory session token (more reliable during app start / auth events).
+    const inMemory = sessionRef.current?.access_token ?? null;
+    if (inMemory) return inMemory;
+
     const { data } = await supabase.auth.getSession();
     return data.session?.access_token ?? null;
   }, [supabase]);
@@ -87,62 +110,145 @@ export function AuthProvider({
     });
   }, [config.apiBaseUrl, getAccessToken]);
 
+  const isUnauthorizedError = useCallback((error: unknown): boolean => {
+    if (!error || typeof error !== "object") return false;
+    const maybe = error as { statusCode?: unknown; code?: unknown };
+    const status =
+      typeof maybe.statusCode === "number" ? maybe.statusCode : undefined;
+    if (status === 401 || status === 403) return true;
+    if (typeof maybe.code === "string" && maybe.code.toUpperCase() === "UNAUTHORIZED") {
+      return true;
+    }
+    return false;
+  }, []);
+
   /**
    * Bootstrap user from accounts service
    */
   const bootstrapUser = useCallback(async (): Promise<{
-    user: User;
-    workspaces: Workspace[];
-  } | null> => {
+    bootstrap: { user: User; workspaces: Workspace[] } | null;
+    unauthorized: boolean;
+  }> => {
+    const token = sessionRef.current?.access_token ?? null;
+    if (bootstrapInFlightRef.current.promise && bootstrapInFlightRef.current.token === token) {
+      return bootstrapInFlightRef.current.promise;
+    }
+
     try {
-      const response = await accountsClient.getMe();
-      return response;
+      const promise = accountsClient
+        .getMe()
+        .then((response) => ({ bootstrap: response, unauthorized: false }))
+        .catch((error) => {
+          console.error("Failed to bootstrap user:", error);
+          return { bootstrap: null, unauthorized: isUnauthorizedError(error) };
+        });
+
+      bootstrapInFlightRef.current = { token, promise };
+      const result = await promise;
+      return result;
     } catch (error) {
       console.error("Failed to bootstrap user:", error);
-      return null;
+      return { bootstrap: null, unauthorized: isUnauthorizedError(error) };
+    } finally {
+      // Clear inflight if this was the latest token (avoid pinning promise forever).
+      if (bootstrapInFlightRef.current.token === token) {
+        bootstrapInFlightRef.current = { token: null, promise: null };
+      }
     }
-  }, [accountsClient]);
+  }, [accountsClient, isUnauthorizedError]);
 
   /**
    * Handle session change
    */
   const handleSessionChange = useCallback(
     async (session: Session | null) => {
+      sessionRef.current = session;
       if (!session) {
-        setState({
+        const next: AuthState = {
           user: null,
           workspaces: [],
           isLoading: false,
           isAuthenticated: false,
           error: null,
-        });
+        };
+        lastSuccessfulBootstrapTokenRef.current = null;
+        stateRef.current = next;
+        setState(next);
         return;
       }
 
-      setState((prev) => ({ ...prev, isLoading: true }));
-
-      const bootstrap = await bootstrapUser();
-
-      if (bootstrap) {
-        setState({
-          user: bootstrap.user,
-          workspaces: bootstrap.workspaces,
+      const token = session.access_token ?? null;
+      // If we already bootstrapped successfully for this exact token, don't spam /me.
+      if (
+        token &&
+        lastSuccessfulBootstrapTokenRef.current === token &&
+        stateRef.current.isAuthenticated &&
+        stateRef.current.user
+      ) {
+        const next: AuthState = {
+          ...stateRef.current,
           isLoading: false,
           isAuthenticated: true,
           error: null,
-        });
+        };
+        stateRef.current = next;
+        setState(next);
+        return;
+      }
+
+      setState((prev) => {
+        const next = { ...prev, isLoading: true };
+        stateRef.current = next;
+        return next;
+      });
+
+      const { bootstrap, unauthorized } = await bootstrapUser();
+
+      if (bootstrap) {
+        const safeWorkspaces = Array.isArray(bootstrap.workspaces)
+          ? bootstrap.workspaces
+          : [];
+        const next: AuthState = {
+          user: bootstrap.user,
+          workspaces: safeWorkspaces,
+          isLoading: false,
+          isAuthenticated: true,
+          error: null,
+        };
+        if (token) {
+          lastSuccessfulBootstrapTokenRef.current = token;
+        }
+        stateRef.current = next;
+        setState(next);
       } else {
+        if (unauthorized) {
+          // Token exists but backend rejected it -> treat as logged out.
+          await supabase.auth.signOut();
+          const next: AuthState = {
+            user: null,
+            workspaces: [],
+            isLoading: false,
+            isAuthenticated: false,
+            error: null,
+          };
+          lastSuccessfulBootstrapTokenRef.current = null;
+          stateRef.current = next;
+          setState(next);
+          return;
+        }
         // Session exists but couldn't bootstrap - might be new user
-        setState({
+        const next: AuthState = {
           user: null,
           workspaces: [],
           isLoading: false,
           isAuthenticated: true,
           error: null,
-        });
+        };
+        stateRef.current = next;
+        setState(next);
       }
     },
-    [bootstrapUser]
+    [bootstrapUser, isUnauthorizedError, supabase]
   );
 
   // Initialize auth state

@@ -327,6 +327,29 @@ describe("AuthProvider", () => {
       });
     });
 
+    it("should not call /me multiple times for duplicate auth events with the same session", async () => {
+      mockGetSession.mockResolvedValue({ data: { session: mockSession } });
+      mockGetMe.mockResolvedValue({
+        user: mockUser,
+        workspaces: [mockWorkspace],
+      });
+
+      renderWithProvider();
+
+      await waitFor(() => {
+        expect(mockGetMe).toHaveBeenCalledTimes(1);
+      });
+
+      // Simulate duplicate auth event from Supabase (same session)
+      expect(authStateChangeCallback).toBeTruthy();
+      authStateChangeCallback?.("SIGNED_IN", mockSession);
+
+      // Should remain de-duped
+      await waitFor(() => {
+        expect(mockGetMe).toHaveBeenCalledTimes(1);
+      });
+    });
+
     it("should handle bootstrap failure gracefully", async () => {
       mockGetSession.mockResolvedValue({ data: { session: mockSession } });
       mockGetMe.mockRejectedValue(new Error("Network error"));
@@ -344,6 +367,26 @@ describe("AuthProvider", () => {
       expect(screen.getByTestId("user")).toHaveTextContent("no-user");
     });
 
+    it("should sign out and mark unauthenticated when bootstrap returns unauthorized", async () => {
+      mockGetSession.mockResolvedValue({ data: { session: mockSession } });
+      mockGetMe.mockRejectedValue({
+        statusCode: 401,
+        message: "Missing or invalid authentication",
+      });
+
+      renderWithProvider();
+
+      await waitFor(() => {
+        expect(screen.getByTestId("loading")).toHaveTextContent("loaded");
+      });
+
+      expect(mockSignOut).toHaveBeenCalled();
+      expect(screen.getByTestId("authenticated")).toHaveTextContent(
+        "unauthenticated"
+      );
+      expect(screen.getByTestId("user")).toHaveTextContent("no-user");
+    });
+
     it("should set workspaces from bootstrap response", async () => {
       mockGetSession.mockResolvedValue({ data: { session: mockSession } });
       mockGetMe.mockResolvedValue({
@@ -356,6 +399,23 @@ describe("AuthProvider", () => {
       await waitFor(() => {
         expect(screen.getByTestId("workspaces-count")).toHaveTextContent("2");
       });
+    });
+
+    it("should not crash when bootstrap response has missing workspaces", async () => {
+      mockGetSession.mockResolvedValue({ data: { session: mockSession } });
+      mockGetMe.mockResolvedValue({
+        user: mockUser,
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        workspaces: undefined as any,
+      });
+
+      renderWithProvider();
+
+      await waitFor(() => {
+        expect(screen.getByTestId("loading")).toHaveTextContent("loaded");
+      });
+
+      expect(screen.getByTestId("workspaces-count")).toHaveTextContent("0");
     });
   });
 
