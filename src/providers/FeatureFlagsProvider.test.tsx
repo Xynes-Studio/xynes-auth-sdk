@@ -95,7 +95,7 @@ describe("FeatureFlagsProvider", () => {
     render(
       <FeatureFlagsProvider apiBaseUrl="http://localhost:4100">
         <TestConsumer />
-      </FeatureFlagsProvider>
+      </FeatureFlagsProvider>,
     );
 
     // Initially loading
@@ -110,20 +110,48 @@ describe("FeatureFlagsProvider", () => {
     expect(screen.getByTestId("authenticated").textContent).toBe("false");
     expect(global.fetch).toHaveBeenCalledWith(
       "http://localhost:4100/flags",
-      expect.any(Object)
+      expect.any(Object),
     );
+  });
+
+  it("normalizes gateway-style flag keys from the response", async () => {
+    (global.fetch as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
+      ok: true,
+      json: () =>
+        Promise.resolve({
+          flags: {
+            enableOAuthGoogle: true,
+            enableOAuthGitHub: false,
+            enablePasswordReset: true,
+          },
+          authenticated: false,
+        }),
+    });
+
+    render(
+      <FeatureFlagsProvider apiBaseUrl="http://localhost:4100">
+        <TestConsumer />
+      </FeatureFlagsProvider>,
+    );
+
+    await waitFor(() => {
+      expect(screen.getByTestId("loading").textContent).toBe("false");
+    });
+
+    expect(screen.getByTestId("google").textContent).toBe("true");
+    expect(screen.getByTestId("github").textContent).toBe("false");
   });
 
   it("uses default flags when fetch fails", async () => {
     const consoleSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
     (global.fetch as ReturnType<typeof vi.fn>).mockRejectedValueOnce(
-      new Error("Network error")
+      new Error("Network error"),
     );
 
     render(
       <FeatureFlagsProvider apiBaseUrl="http://localhost:4100">
         <TestConsumer />
-      </FeatureFlagsProvider>
+      </FeatureFlagsProvider>,
     );
 
     await waitFor(() => {
@@ -132,7 +160,7 @@ describe("FeatureFlagsProvider", () => {
 
     // Should use defaults (OAuth disabled for safety)
     expect(screen.getByTestId("google").textContent).toBe(
-      DEFAULT_FEATURE_FLAGS.xynes_auth_oauth_google.toString()
+      DEFAULT_FEATURE_FLAGS.xynes_auth_oauth_google.toString(),
     );
     expect(screen.getByTestId("error").textContent).toBe("Network error");
 
@@ -146,7 +174,7 @@ describe("FeatureFlagsProvider", () => {
         fetchOnMount={false}
       >
         <TestConsumer />
-      </FeatureFlagsProvider>
+      </FeatureFlagsProvider>,
     );
 
     expect(screen.getByTestId("loading").textContent).toBe("false");
@@ -164,11 +192,36 @@ describe("FeatureFlagsProvider", () => {
         }}
       >
         <TestConsumer />
-      </FeatureFlagsProvider>
+      </FeatureFlagsProvider>,
     );
 
     expect(screen.getByTestId("google").textContent).toBe("true");
     expect(screen.getByTestId("mfa-enabled").textContent).toBe("true");
+  });
+
+  it("applies override flags after fetch", async () => {
+    (global.fetch as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
+      ok: true,
+      json: () => Promise.resolve(mockFlagsResponse),
+    });
+
+    render(
+      <FeatureFlagsProvider
+        apiBaseUrl="http://localhost:4100"
+        flagOverrides={{
+          xynes_auth_oauth_github: false,
+        }}
+      >
+        <TestConsumer />
+      </FeatureFlagsProvider>,
+    );
+
+    await waitFor(() => {
+      expect(screen.getByTestId("loading").textContent).toBe("false");
+    });
+
+    expect(screen.getByTestId("google").textContent).toBe("true");
+    expect(screen.getByTestId("github").textContent).toBe("false");
   });
 
   it("handles authenticated flag response", async () => {
@@ -185,7 +238,7 @@ describe("FeatureFlagsProvider", () => {
     render(
       <FeatureFlagsProvider apiBaseUrl="http://localhost:4100">
         <TestConsumer />
-      </FeatureFlagsProvider>
+      </FeatureFlagsProvider>,
     );
 
     await waitFor(() => {
@@ -208,7 +261,7 @@ describe("FeatureFlagsProvider", () => {
         getAccessToken={getAccessToken}
       >
         <TestConsumer />
-      </FeatureFlagsProvider>
+      </FeatureFlagsProvider>,
     );
 
     await waitFor(() => {
@@ -222,7 +275,7 @@ describe("FeatureFlagsProvider", () => {
         headers: expect.objectContaining({
           Authorization: `Bearer ${mockToken}`,
         }),
-      })
+      }),
     );
   });
 });
@@ -251,7 +304,7 @@ describe("useOAuthProviders", () => {
     render(
       <FeatureFlagsProvider apiBaseUrl="http://localhost:4100">
         <OAuthConsumer />
-      </FeatureFlagsProvider>
+      </FeatureFlagsProvider>,
     );
 
     await waitFor(() => {
@@ -285,7 +338,7 @@ describe("useFeatureFlag", () => {
     render(
       <FeatureFlagsProvider apiBaseUrl="http://localhost:4100">
         <SingleFlagConsumer />
-      </FeatureFlagsProvider>
+      </FeatureFlagsProvider>,
     );
 
     await waitFor(() => {
@@ -317,7 +370,7 @@ describe("useMaintenanceMode", () => {
     render(
       <FeatureFlagsProvider apiBaseUrl="http://localhost:4100">
         <SingleFlagConsumer />
-      </FeatureFlagsProvider>
+      </FeatureFlagsProvider>,
     );
 
     await waitFor(() => {

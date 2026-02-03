@@ -17,6 +17,7 @@ import type {
   OAuthProviderConfig,
 } from "../types/feature-flags";
 import { DEFAULT_FEATURE_FLAGS } from "../types/feature-flags";
+import { normalizeFeatureFlags } from "../utils/feature-flags";
 
 /**
  * Feature flags provider props
@@ -33,6 +34,10 @@ export interface FeatureFlagsProviderProps {
    * Optional initial flags (for SSR or testing)
    */
   initialFlags?: Partial<FeatureFlags>;
+  /**
+   * Optional overrides applied after fetched flags
+   */
+  flagOverrides?: Partial<FeatureFlags>;
   /**
    * Polling interval in milliseconds (0 = disabled)
    * @default 0
@@ -53,7 +58,7 @@ export interface FeatureFlagsProviderProps {
  * Feature flags context
  */
 const FeatureFlagsContext = createContext<FeatureFlagsContextValue | null>(
-  null
+  null,
 );
 
 /**
@@ -72,12 +77,26 @@ export function FeatureFlagsProvider({
   children,
   apiBaseUrl,
   initialFlags,
+  flagOverrides,
   pollingInterval = 0,
   fetchOnMount = true,
   getAccessToken,
 }: FeatureFlagsProviderProps) {
+  const normalizedInitialFlags = useMemo(
+    () => normalizeFeatureFlags(initialFlags),
+    [initialFlags],
+  );
+  const normalizedOverrides = useMemo(
+    () => normalizeFeatureFlags(flagOverrides),
+    [flagOverrides],
+  );
+
   const [state, setState] = useState<FeatureFlagsState>({
-    flags: { ...DEFAULT_FEATURE_FLAGS, ...initialFlags },
+    flags: {
+      ...DEFAULT_FEATURE_FLAGS,
+      ...normalizedInitialFlags,
+      ...normalizedOverrides,
+    },
     isLoading: fetchOnMount,
     isAuthenticated: false,
     error: null,
@@ -120,8 +139,15 @@ export function FeatureFlagsProvider({
 
       const data: FeatureFlagsResponse = await response.json();
 
+      const normalizedFetchedFlags = normalizeFeatureFlags(data?.flags);
+
       setState({
-        flags: { ...DEFAULT_FEATURE_FLAGS, ...data.flags },
+        flags: {
+          ...DEFAULT_FEATURE_FLAGS,
+          ...normalizedInitialFlags,
+          ...normalizedFetchedFlags,
+          ...normalizedOverrides,
+        },
         isLoading: false,
         isAuthenticated: data.authenticated,
         error: null,
@@ -130,7 +156,7 @@ export function FeatureFlagsProvider({
     } catch (error) {
       console.warn(
         "[FeatureFlags] Failed to fetch flags, using defaults:",
-        error
+        error,
       );
       setState((prev) => ({
         ...prev,
@@ -138,7 +164,7 @@ export function FeatureFlagsProvider({
         error: error instanceof Error ? error : new Error("Unknown error"),
       }));
     }
-  }, [apiBaseUrl, getAccessToken]);
+  }, [apiBaseUrl, getAccessToken, normalizedInitialFlags, normalizedOverrides]);
 
   /**
    * Check if a specific flag is enabled
@@ -147,7 +173,7 @@ export function FeatureFlagsProvider({
     (flag: FeatureFlagKey): boolean => {
       return state.flags[flag] ?? false;
     },
-    [state.flags]
+    [state.flags],
   );
 
   /**
@@ -193,7 +219,7 @@ export function FeatureFlagsProvider({
       hasOAuthProviders,
       refetch: fetchFlags,
     }),
-    [state, isEnabled, getOAuthProviders, hasOAuthProviders, fetchFlags]
+    [state, isEnabled, getOAuthProviders, hasOAuthProviders, fetchFlags],
   );
 
   return (
@@ -222,7 +248,7 @@ export function useFeatureFlags(): FeatureFlagsContextValue {
 
   if (!context) {
     throw new Error(
-      "useFeatureFlags must be used within a FeatureFlagsProvider"
+      "useFeatureFlags must be used within a FeatureFlagsProvider",
     );
   }
 
