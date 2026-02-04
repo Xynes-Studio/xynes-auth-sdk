@@ -87,5 +87,49 @@ describe("AccountsClient", () => {
     expect(headers.Authorization).toBe("Bearer test-token");
     expect(headers["x-csrf-token"]).toBe("test-csrf-token");
   });
-});
 
+  it("creates workspace invites via POST /workspaces/{workspaceId}/invites", async () => {
+    fetchMock.mockResolvedValueOnce({
+      ok: true,
+      status: 201,
+      json: async () => ({
+        ok: true,
+        data: {
+          id: "inv_1",
+          workspaceId: "ws_1",
+          email: "colleague@example.com",
+          roleKey: "workspace_member",
+          status: "pending",
+          expiresAt: "2026-02-10T12:00:00.000Z",
+          token: "xyn_inv_testtoken",
+        },
+      }),
+    });
+
+    const client = new AccountsClient({
+      baseUrl: "http://localhost:4100",
+      getAccessToken,
+    });
+
+    const result = await client.createWorkspaceInvite("ws_1", {
+      email: "colleague@example.com",
+      roleKey: "workspace_member",
+    });
+
+    expect(result.token).toBe("xyn_inv_testtoken");
+
+    const [url, init] = fetchMock.mock.calls[0];
+    expect(url).toBe("http://localhost:4100/workspaces/ws_1/invites");
+    expect(init.method).toBe("POST");
+    expect(init.body).toBe(
+      JSON.stringify({
+        email: "colleague@example.com",
+        roleKey: "workspace_member",
+      }),
+    );
+
+    const headers = init.headers as Record<string, string>;
+    expect(headers.Authorization).toBe("Bearer test-token");
+    expect(headers["x-csrf-token"]).toBe("test-csrf-token");
+  });
+});

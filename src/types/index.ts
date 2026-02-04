@@ -55,6 +55,20 @@ export interface WorkspaceInvite {
 export type InviteStatus = "pending" | "accepted" | "expired" | "cancelled";
 
 /**
+ * Result returned when creating a workspace invite.
+ * Note: the `token` is only returned once at creation time.
+ */
+export interface WorkspaceInviteCreateResult {
+  id: string;
+  workspaceId: string;
+  email: string;
+  roleKey: WorkspaceRole;
+  status: "pending";
+  expiresAt: string;
+  token: string;
+}
+
+/**
  * Auth state for the AuthProvider
  */
 export interface AuthState {

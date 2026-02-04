@@ -27,16 +27,14 @@ const FLAG_KEY_MAP: Record<string, FeatureFlagKey> = {
  * - Accepts SDK keys (xynes_*) and gateway-style keys (enableOAuthGoogle, etc)
  * - Filters non-boolean values
  */
-export function normalizeFeatureFlags(
-  input: Partial<Record<string, unknown>> | null | undefined,
-): Partial<FeatureFlags> {
+export function normalizeFeatureFlags(input: unknown): Partial<FeatureFlags> {
   if (!input || typeof input !== "object") {
     return {};
   }
 
   const normalized: Partial<FeatureFlags> = {};
 
-  for (const [key, value] of Object.entries(input)) {
+  for (const [key, value] of Object.entries(input as Record<string, unknown>)) {
     if (typeof value !== "boolean") continue;
 
     if (key in DEFAULT_FEATURE_FLAGS) {

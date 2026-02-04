@@ -1,4 +1,10 @@
-import type { BootstrapResponse, Workspace, WorkspaceInvite } from "../types";
+import type {
+  BootstrapResponse,
+  Workspace,
+  WorkspaceInvite,
+  WorkspaceInviteCreateResult,
+  WorkspaceRole,
+} from "../types";
 import { attachCsrfToken } from "./interceptors/csrf-interceptor";
 import { handleRateLimitResponse } from "./interceptors/rate-limit-interceptor";
 
@@ -117,6 +123,31 @@ export class AccountsClient {
       method: "POST",
       body: JSON.stringify(data),
     });
+  }
+
+  /**
+   * Create a workspace invite (RBAC protected).
+   */
+  async createWorkspaceInvite(
+    workspaceId: string,
+    data: {
+      email: string;
+      roleKey: WorkspaceRole;
+    },
+  ): Promise<WorkspaceInviteCreateResult> {
+    const normalizedWorkspaceId = workspaceId.trim();
+    const normalizedEmail = data.email.trim().toLowerCase();
+
+    return this.request<WorkspaceInviteCreateResult>(
+      `/workspaces/${encodeURIComponent(normalizedWorkspaceId)}/invites`,
+      {
+        method: "POST",
+        body: JSON.stringify({
+          email: normalizedEmail,
+          roleKey: data.roleKey,
+        }),
+      },
+    );
   }
 
   /**
