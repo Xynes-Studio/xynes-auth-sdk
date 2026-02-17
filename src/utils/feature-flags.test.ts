@@ -7,6 +7,7 @@ describe("normalizeFeatureFlags", () => {
       enableOAuthGoogle: true,
       enableOAuthGitHub: false,
       enablePasswordReset: true,
+      enableAuthDashboardAppsV1: false,
       maintenanceMode: true,
     });
 
@@ -14,6 +15,7 @@ describe("normalizeFeatureFlags", () => {
       xynes_auth_oauth_google: true,
       xynes_auth_oauth_github: false,
       xynes_auth_password_reset: true,
+      xynes_auth_dashboard_apps_v1: false,
       xynes_maintenance_mode: true,
     });
   });
@@ -22,11 +24,13 @@ describe("normalizeFeatureFlags", () => {
     const result = normalizeFeatureFlags({
       xynes_auth_oauth_google: false,
       xynes_workspace_multiple: true,
+      xynes_auth_dashboard_apps_v1: false,
     });
 
     expect(result).toEqual({
       xynes_auth_oauth_google: false,
       xynes_workspace_multiple: true,
+      xynes_auth_dashboard_apps_v1: false,
     });
   });
 

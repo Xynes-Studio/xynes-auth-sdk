@@ -2,6 +2,7 @@ import type {
   BootstrapResponse,
   Workspace,
   WorkspaceInvite,
+  WorkspaceInviteAcceptResult,
   WorkspaceInviteCreateResult,
   WorkspaceRole,
 } from "../types";
@@ -22,6 +23,127 @@ function unwrapGatewayEnvelope(value: unknown): unknown {
     current = current.data;
   }
   return current;
+}
+
+function asRecord(value: unknown): Record<string, unknown> | null {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return null;
+  return value as Record<string, unknown>;
+}
+
+function normalizeWorkspaceRole(value: unknown): WorkspaceRole {
+  if (
+    value === "workspace_owner" ||
+    value === "workspace_admin" ||
+    value === "workspace_member"
+  ) {
+    return value;
+  }
+  return "workspace_member";
+}
+
+function normalizeWorkspace(value: unknown): Workspace | null {
+  const record = asRecord(value);
+  if (!record) return null;
+
+  const id = typeof record.id === "string" ? record.id : "";
+  const name = typeof record.name === "string" ? record.name : "";
+  const slug = typeof record.slug === "string" ? record.slug : "";
+  if (!id || !name || !slug) return null;
+
+  const planType =
+    record.planType === "pro" || record.planType === "enterprise"
+      ? record.planType
+      : "free";
+
+  return {
+    id,
+    name,
+    slug,
+    planType,
+    role: normalizeWorkspaceRole(record.role),
+    createdAt:
+      typeof record.createdAt === "string" ? record.createdAt : undefined,
+    updatedAt:
+      typeof record.updatedAt === "string" ? record.updatedAt : undefined,
+  };
+}
+
+function normalizeResolveInviteResponse(value: unknown): WorkspaceInvite {
+  const record = asRecord(value);
+  if (!record) {
+    throw new Error("Invalid invite response shape");
+  }
+
+  const roleKey = normalizeWorkspaceRole(record.roleKey ?? record.role);
+  const role = normalizeWorkspaceRole(record.role ?? record.roleKey);
+  const status =
+    record.status === "accepted" ||
+    record.status === "expired" ||
+    record.status === "cancelled"
+      ? record.status
+      : "pending";
+
+  const expiresAt =
+    typeof record.expiresAt === "string" && record.expiresAt.length > 0
+      ? record.expiresAt
+      : new Date(0).toISOString();
+
+  const createdAt =
+    typeof record.createdAt === "string" && record.createdAt.length > 0
+      ? record.createdAt
+      : new Date(0).toISOString();
+
+  return {
+    id: typeof record.id === "string" ? record.id : "",
+    token: typeof record.token === "string" ? record.token : undefined,
+    workspaceId: typeof record.workspaceId === "string" ? record.workspaceId : "",
+    workspaceSlug:
+      typeof record.workspaceSlug === "string" ? record.workspaceSlug : null,
+    workspaceName:
+      typeof record.workspaceName === "string" ? record.workspaceName : "",
+    inviterName:
+      typeof record.inviterName === "string" ? record.inviterName : null,
+    inviterEmail:
+      typeof record.inviterEmail === "string" ? record.inviterEmail : null,
+    inviteeEmail:
+      typeof record.inviteeEmail === "string" ? record.inviteeEmail : "",
+    role,
+    roleKey,
+    status,
+    expiresAt,
+    createdAt,
+  };
+}
+
+function normalizeAcceptInviteResponse(value: unknown): WorkspaceInviteAcceptResult {
+  const record = asRecord(value);
+  if (!record) {
+    throw new Error("Invalid accept invite response shape");
+  }
+
+  // Backward compatibility: some backends returned a workspace object directly.
+  const directWorkspace = normalizeWorkspace(record);
+  if (directWorkspace) {
+    return {
+      accepted: true,
+      workspaceId: directWorkspace.id,
+      roleKey: normalizeWorkspaceRole(directWorkspace.role),
+      workspaceMemberCreated: false,
+      workspace: directWorkspace,
+    };
+  }
+
+  const workspace = normalizeWorkspace(record.workspace);
+  return {
+    accepted: true,
+    workspaceId:
+      typeof record.workspaceId === "string"
+        ? record.workspaceId
+        : workspace?.id ?? "",
+    roleKey: normalizeWorkspaceRole(record.roleKey ?? workspace?.role),
+    workspaceMemberCreated: Boolean(record.workspaceMemberCreated),
+    workspace,
+  };
 }
 
 /**
@@ -59,8 +181,10 @@ export class AccountsClient {
   private async request<T>(
     path: string,
     options: RequestInit = {},
+    requestConfig?: { includeAuth?: boolean },
   ): Promise<T> {
-    const token = await this.getAccessToken();
+    const includeAuth = requestConfig?.includeAuth !== false;
+    const token = includeAuth ? await this.getAccessToken() : null;
 
     const normalizedHeaders = attachCsrfToken(options.headers || {});
 
@@ -154,29 +278,25 @@ export class AccountsClient {
    * Resolve an invite token (public - no auth required)
    */
   async resolveInvite(token: string): Promise<WorkspaceInvite> {
-    // This is a public endpoint - don't send auth header
-    const response = await fetch(`${this.baseUrl}/workspace-invites/${token}`);
-
-    if (!response.ok) {
-      handleRateLimitResponse(response);
-
-      const error: ApiError = await response.json().catch(() => ({
-        statusCode: response.status,
-        message: response.statusText,
-      }));
-      throw error;
-    }
-
-    return response.json();
+    const raw = await this.request<unknown>(
+      `/workspace-invites/${encodeURIComponent(token)}`,
+      { method: "GET" },
+      { includeAuth: false },
+    );
+    return normalizeResolveInviteResponse(raw);
   }
 
   /**
    * Accept an invite
    */
-  async acceptInvite(token: string): Promise<Workspace> {
-    return this.request<Workspace>(`/workspace-invites/${token}/accept`, {
-      method: "POST",
-    });
+  async acceptInvite(token: string): Promise<WorkspaceInviteAcceptResult> {
+    const raw = await this.request<unknown>(
+      `/workspace-invites/${encodeURIComponent(token)}/accept`,
+      {
+        method: "POST",
+      },
+    );
+    return normalizeAcceptInviteResponse(raw);
   }
 }
 

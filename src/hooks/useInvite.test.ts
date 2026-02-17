@@ -9,13 +9,14 @@ const mockUseAuth = vi.spyOn(AuthProviderModule, "useAuth");
 // Store mock functions for access in tests
 const mockResolveInvite = vi.fn();
 const mockAcceptInvite = vi.fn();
+const mockGetWorkspaces = vi.fn();
 
 // Mock AccountsClient constructor
 vi.mock("../api/accounts-client", () => ({
   AccountsClient: vi.fn().mockImplementation(() => ({
     resolveInvite: mockResolveInvite,
     acceptInvite: mockAcceptInvite,
-    getWorkspaces: vi.fn(),
+    getWorkspaces: mockGetWorkspaces,
   })),
 }));
 
@@ -25,7 +26,7 @@ const mockInvite = {
   workspaceName: "Test Workspace",
   workspaceSlug: "test-workspace",
   invitedBy: "admin@example.com",
-  role: "member" as const,
+  role: "workspace_member" as const,
   expiresAt: "2025-01-01",
 };
 
@@ -34,6 +35,7 @@ describe("useInvite", () => {
     vi.clearAllMocks();
     mockResolveInvite.mockReset();
     mockAcceptInvite.mockReset();
+    mockGetWorkspaces.mockReset();
 
     // Default mock for useAuth - not authenticated
     mockUseAuth.mockReturnValue({
@@ -143,9 +145,8 @@ describe("useInvite", () => {
       id: "ws-1",
       name: "Test Workspace",
       slug: "test-workspace",
-      tier: "starter" as const,
-      createdAt: "2024-01-01",
-      role: "member" as const,
+      planType: "free" as const,
+      role: "workspace_member" as const,
     };
 
     mockUseAuth.mockReturnValue({
@@ -173,7 +174,13 @@ describe("useInvite", () => {
     });
 
     mockResolveInvite.mockResolvedValueOnce(mockInvite);
-    mockAcceptInvite.mockResolvedValueOnce(mockWorkspace);
+    mockAcceptInvite.mockResolvedValueOnce({
+      accepted: true,
+      workspaceId: "ws-1",
+      roleKey: "workspace_member",
+      workspaceMemberCreated: true,
+      workspace: mockWorkspace,
+    });
 
     const { result } = renderHook(() =>
       useInvite("test-token", "http://localhost:4100")
@@ -189,6 +196,66 @@ describe("useInvite", () => {
     });
 
     expect(acceptResult).toEqual(mockWorkspace);
+  });
+
+  it("should fall back to getWorkspaces when accept response omits workspace object", async () => {
+    mockUseAuth.mockReturnValue({
+      user: {
+        id: "user-1",
+        email: "test@example.com",
+        displayName: "Test User",
+        avatarUrl: null,
+        emailVerified: true,
+        createdAt: "2024-01-01",
+        updatedAt: "2024-01-01",
+      },
+      isLoading: false,
+      isAuthenticated: true,
+      workspaces: [],
+      error: null,
+      signUp: vi.fn(),
+      signInWithPassword: vi.fn(),
+      signInWithOAuth: vi.fn(),
+      signOut: vi.fn(),
+      refreshSession: vi.fn(),
+      redirectToLogin: vi.fn(),
+      redirectToSignup: vi.fn(),
+      getAccessToken: vi.fn(),
+    });
+
+    const fallbackWorkspace = {
+      id: "ws-1",
+      name: "Test Workspace",
+      slug: "test-workspace",
+      planType: "free" as const,
+      role: "workspace_member" as const,
+    };
+
+    mockResolveInvite.mockResolvedValueOnce(mockInvite);
+    mockAcceptInvite.mockResolvedValueOnce({
+      accepted: true,
+      workspaceId: "ws-1",
+      roleKey: "workspace_member",
+      workspaceMemberCreated: true,
+      workspace: null,
+    });
+    mockGetWorkspaces.mockResolvedValueOnce([fallbackWorkspace]);
+
+    const { result } = renderHook(() =>
+      useInvite("test-token", "http://localhost:4100")
+    );
+
+    await waitFor(() => {
+      expect(result.current.isLoading).toBe(false);
+    });
+
+    let acceptResult: unknown;
+    await act(async () => {
+      acceptResult = await result.current.acceptInvite();
+    });
+
+    expect(mockGetWorkspaces).toHaveBeenCalled();
+    expect(acceptResult).toEqual(fallbackWorkspace);
   });
 
   it("should handle accept invite error", async () => {

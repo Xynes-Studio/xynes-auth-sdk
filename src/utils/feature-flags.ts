@@ -13,6 +13,7 @@ const FLAG_KEY_MAP: Record<string, FeatureFlagKey> = {
   enableSessionManagement: "xynes_auth_session_management",
   enableRateLimitUI: "xynes_auth_rate_limit_ui",
   enableProfileEdit: "xynes_auth_profile_edit",
+  enableAuthDashboardAppsV1: "xynes_auth_dashboard_apps_v1",
   enableWorkspaceCreation: "xynes_workspace_creation",
   enableWorkspaceSwitching: "xynes_workspace_switching",
   enableMultipleWorkspaces: "xynes_workspace_multiple",
