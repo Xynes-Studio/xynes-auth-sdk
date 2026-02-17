@@ -93,8 +93,18 @@ export function useInvite(
     setError(null);
 
     try {
-      const workspace = await accountsClient.acceptInvite(token);
-      return workspace;
+      const result = await accountsClient.acceptInvite(token);
+      if (result.workspace) {
+        return result.workspace;
+      }
+
+      // Backward-compatible fallback for older accept payloads without workspace.
+      if (result.workspaceId) {
+        const workspaces = await accountsClient.getWorkspaces();
+        return workspaces.find((workspace) => workspace.id === result.workspaceId) ?? null;
+      }
+
+      return null;
     } catch (err) {
       const authError = normalizeAuthError(err);
       setError(authError);

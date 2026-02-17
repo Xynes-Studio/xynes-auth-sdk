@@ -132,4 +132,77 @@ describe("AccountsClient", () => {
     expect(headers.Authorization).toBe("Bearer test-token");
     expect(headers["x-csrf-token"]).toBe("test-csrf-token");
   });
+
+  it("resolves invite via envelope payload and normalizes role from roleKey", async () => {
+    fetchMock.mockResolvedValueOnce({
+      ok: true,
+      status: 200,
+      json: async () => ({
+        ok: true,
+        data: {
+          id: "invite-1",
+          workspaceId: "ws_1",
+          workspaceSlug: "acme",
+          workspaceName: "Acme",
+          inviterName: "Owner",
+          inviterEmail: "owner@acme.com",
+          inviteeEmail: "invitee@acme.com",
+          roleKey: "workspace_member",
+          status: "pending",
+          expiresAt: "2026-02-10T12:00:00.000Z",
+          createdAt: "2026-02-01T12:00:00.000Z",
+        },
+      }),
+    });
+
+    const client = new AccountsClient({
+      baseUrl: "http://localhost:4100",
+      getAccessToken,
+    });
+
+    const result = await client.resolveInvite("invite-token");
+    expect(result.workspaceId).toBe("ws_1");
+    expect(result.roleKey).toBe("workspace_member");
+    expect(result.role).toBe("workspace_member");
+
+    const [url, init] = fetchMock.mock.calls[0];
+    expect(url).toBe("http://localhost:4100/workspace-invites/invite-token");
+    expect(init.method).toBe("GET");
+    const headers = init.headers as Record<string, string>;
+    expect(headers.Authorization).toBeUndefined();
+  });
+
+  it("accepts invite and normalizes extended response with workspace", async () => {
+    fetchMock.mockResolvedValueOnce({
+      ok: true,
+      status: 201,
+      json: async () => ({
+        ok: true,
+        data: {
+          accepted: true,
+          workspaceId: "ws_1",
+          roleKey: "workspace_member",
+          workspaceMemberCreated: true,
+          workspace: {
+            id: "ws_1",
+            name: "Acme",
+            slug: "acme",
+            planType: "free",
+            role: "workspace_member",
+          },
+        },
+      }),
+    });
+
+    const client = new AccountsClient({
+      baseUrl: "http://localhost:4100",
+      getAccessToken,
+    });
+
+    const result = await client.acceptInvite("invite-token");
+    expect(result.accepted).toBe(true);
+    expect(result.workspaceId).toBe("ws_1");
+    expect(result.workspace?.slug).toBe("acme");
+    expect(result.workspace?.role).toBe("workspace_member");
+  });
 });

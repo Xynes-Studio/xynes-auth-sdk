@@ -20,8 +20,8 @@ export interface Workspace {
   slug: string;
   planType: "free" | "pro" | "enterprise";
   role: WorkspaceRole;
-  createdAt: string;
-  updatedAt: string;
+  createdAt?: string;
+  updatedAt?: string;
 }
 
 /**
@@ -37,13 +37,15 @@ export type WorkspaceRole =
  */
 export interface WorkspaceInvite {
   id: string;
-  token: string;
+  token?: string;
   workspaceId: string;
+  workspaceSlug?: string | null;
   workspaceName: string;
-  inviterName: string;
-  inviterEmail: string;
+  inviterName: string | null;
+  inviterEmail: string | null;
   inviteeEmail: string;
   role: WorkspaceRole;
+  roleKey?: WorkspaceRole;
   status: InviteStatus;
   expiresAt: string;
   createdAt: string;
@@ -66,6 +68,17 @@ export interface WorkspaceInviteCreateResult {
   status: "pending";
   expiresAt: string;
   token: string;
+}
+
+/**
+ * Result returned when accepting an invite.
+ */
+export interface WorkspaceInviteAcceptResult {
+  accepted: true;
+  workspaceId: string;
+  roleKey: WorkspaceRole;
+  workspaceMemberCreated: boolean;
+  workspace: Workspace | null;
 }
 
 /**

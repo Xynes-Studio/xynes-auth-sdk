@@ -382,6 +382,11 @@ const {
 } = useInvite(token, apiBaseUrl);
 ```
 
+Invite contract notes:
+- `resolveInvite` handles gateway envelope and plain JSON responses.
+- Invite role is normalized from either `role` or `roleKey`.
+- `useInvite().acceptInvite()` returns the accepted workspace when available; if accept response omits workspace details, it falls back to workspace lookup.
+
 ### Utilities
 
 #### Validation
@@ -482,4 +487,3 @@ pnpm test:coverage  # Run with coverage report
 ## License
 
 MIT © Xynes Studio
-

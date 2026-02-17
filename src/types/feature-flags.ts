@@ -24,6 +24,7 @@ export interface FeatureFlags {
   xynes_auth_session_management: boolean;
   xynes_auth_rate_limit_ui: boolean;
   xynes_auth_profile_edit: boolean;
+  xynes_auth_dashboard_apps_v1: boolean;
 
   // Workspace Features
   xynes_workspace_creation: boolean;
@@ -55,6 +56,7 @@ export const DEFAULT_FEATURE_FLAGS: FeatureFlags = {
   xynes_auth_session_management: false,
   xynes_auth_rate_limit_ui: true,
   xynes_auth_profile_edit: true,
+  xynes_auth_dashboard_apps_v1: false,
 
   // Workspace (enabled by default)
   xynes_workspace_creation: true,
