@@ -93,12 +93,8 @@ export function UserMenu() {
 import { AuthGuard } from '@xynes/auth-sdk';
 
 export default function DashboardLayout({ children }) {
-  const handleUnauthenticated = () => {
-    window.location.href = `${AUTH_APP_URL}/login?redirect=${window.location.href}`;
-  };
-
   return (
-    <AuthGuard onUnauthenticated={handleUnauthenticated}>
+    <AuthGuard unauthenticatedMode="redirectToAuth">
       {children}
     </AuthGuard>
   );

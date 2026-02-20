@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, type ReactNode } from "react";
+import { useEffect, useRef, type ReactNode } from "react";
 import { useAuth } from "../providers/AuthProvider";
 
 /**
@@ -20,6 +20,17 @@ export interface AuthGuardProps {
    * If true, allows unauthenticated access (for public pages that optionally use auth)
    */
   optional?: boolean;
+  /**
+   * Strategy to run when unauthenticated.
+   * - callback: invokes onUnauthenticated when provided.
+   * - redirectToAuth: calls useAuth().redirectToLogin with optional returnUrl.
+   */
+  unauthenticatedMode?: "callback" | "redirectToAuth";
+  /**
+   * Explicit URL to use as auth-app return target when unauthenticatedMode=redirectToAuth.
+   * Defaults to current location inside redirectToLogin when omitted.
+   */
+  returnUrl?: string;
 }
 
 /**
@@ -30,14 +41,38 @@ export function AuthGuard({
   onUnauthenticated,
   loadingComponent = <DefaultLoadingComponent />,
   optional = false,
+  unauthenticatedMode = "callback",
+  returnUrl,
 }: AuthGuardProps) {
-  const { isLoading, isAuthenticated } = useAuth();
+  const { isLoading, isAuthenticated, redirectToLogin } = useAuth();
+  const hasHandledUnauthenticatedRef = useRef(false);
 
   useEffect(() => {
-    if (!isLoading && !isAuthenticated && !optional) {
-      onUnauthenticated?.();
+    if (isLoading || optional || isAuthenticated) {
+      hasHandledUnauthenticatedRef.current = false;
+      return;
     }
-  }, [isLoading, isAuthenticated, optional, onUnauthenticated]);
+
+    if (hasHandledUnauthenticatedRef.current) {
+      return;
+    }
+
+    hasHandledUnauthenticatedRef.current = true;
+    if (unauthenticatedMode === "redirectToAuth") {
+      redirectToLogin(returnUrl);
+      return;
+    }
+
+    onUnauthenticated?.();
+  }, [
+    isLoading,
+    isAuthenticated,
+    optional,
+    onUnauthenticated,
+    redirectToLogin,
+    returnUrl,
+    unauthenticatedMode,
+  ]);
 
   // Show loading while checking auth
   if (isLoading) {
