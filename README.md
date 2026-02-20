@@ -293,6 +293,18 @@ const config = createAuthConfig({
   supabase: { url: '...', anonKey: '...' },
   api: { baseUrl: '...' },
   auth: { appUrl: '...', cookieDomain: '.xynes.com' },
+  crossApp: {
+    redirects: {
+      appUrl: 'https://cms.xynes.com',
+      allowedDomains: ['xynes.com', 'localhost:3000'],
+      fallbackPath: '/dashboard',
+    },
+    session: {
+      cookieDomain: '.xynes.com',
+      secureCookies: true,
+      cookieName: 'xynes_session',
+    },
+  },
   features: { enableMFA: true },
   modules: { 'invite': { enabled: false } },
 });
@@ -402,11 +414,29 @@ getPasswordStrength('MySecure123!'); // 'strong'
 #### Redirect Safety
 
 ```tsx
-import { isValidRedirectUrl, getSafeRedirectUrl } from '@xynes/auth-sdk';
+import {
+  isValidRedirectUrl,
+  getSafeRedirectUrl,
+  buildAuthLoginUrl,
+  buildAuthLogoutUrl,
+} from '@xynes/auth-sdk';
 
 // Prevent open redirect attacks
 isValidRedirectUrl('https://evil.com', ['xynes.com']); // false
 getSafeRedirectUrl(userInput, '/dashboard', ['xynes.com']);
+
+// Build canonical auth-app login/logout URLs with safe redirect targets
+buildAuthLoginUrl({
+  authAppUrl: 'https://auth.xynes.com',
+  redirectUrl: 'https://cms.xynes.com/content?tab=draft',
+  allowedDomains: ['xynes.com', 'localhost:3000'],
+});
+
+buildAuthLogoutUrl({
+  authAppUrl: 'https://auth.xynes.com',
+  redirectUrl: '/signed-out',
+  allowedDomains: ['xynes.com', 'localhost:3000'],
+});
 ```
 
 ## Environment Variables

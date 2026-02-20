@@ -27,6 +27,9 @@ export function isValidRedirectUrl(
 
   try {
     const parsedUrl = new URL(url);
+    if (parsedUrl.protocol !== "http:" && parsedUrl.protocol !== "https:") {
+      return false;
+    }
     const hostname = parsedUrl.hostname.toLowerCase();
 
     // Check if the hostname matches any allowed domain
@@ -98,4 +101,73 @@ export function buildAuthRedirectUrl(
   }
 
   return url.toString();
+}
+
+export interface AuthRouteUrlOptions {
+  authAppUrl: string;
+  redirectUrl?: string;
+  allowedDomains?: string[];
+  fallbackRedirectUrl?: string;
+  redirectParamName?: string;
+}
+
+function resolveRedirectTarget({
+  redirectUrl,
+  allowedDomains,
+  fallbackRedirectUrl,
+}: Pick<
+  AuthRouteUrlOptions,
+  "redirectUrl" | "allowedDomains" | "fallbackRedirectUrl"
+>): string | undefined {
+  const domains = allowedDomains ?? [];
+  const candidate =
+    domains.length > 0
+      ? getSafeRedirectUrl(redirectUrl ?? "", "", domains)
+      : redirectUrl ?? "";
+
+  if (candidate) {
+    return candidate;
+  }
+
+  const fallback = fallbackRedirectUrl ?? "";
+  if (!fallback) {
+    return undefined;
+  }
+
+  if (domains.length === 0 || isValidRedirectUrl(fallback, domains)) {
+    return fallback;
+  }
+
+  return undefined;
+}
+
+function buildAuthRouteUrl(
+  path: "login" | "signup" | "logout",
+  {
+    authAppUrl,
+    redirectUrl,
+    allowedDomains,
+    fallbackRedirectUrl,
+    redirectParamName = "redirect",
+  }: AuthRouteUrlOptions
+): string {
+  const safeTarget = resolveRedirectTarget({
+    redirectUrl,
+    allowedDomains,
+    fallbackRedirectUrl,
+  });
+
+  const url = new URL(`/${path}`, authAppUrl);
+  if (safeTarget) {
+    url.searchParams.set(redirectParamName, safeTarget);
+  }
+  return url.toString();
+}
+
+export function buildAuthLoginUrl(options: AuthRouteUrlOptions): string {
+  return buildAuthRouteUrl("login", options);
+}
+
+export function buildAuthLogoutUrl(options: AuthRouteUrlOptions): string {
+  return buildAuthRouteUrl("logout", options);
 }
