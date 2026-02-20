@@ -28,6 +28,12 @@
  */
 
 import { type AuthFeatureFlags, createFeatureFlags } from "./feature-flags";
+import type { CrossAppConfig } from "../types";
+export type {
+  CrossAppConfig,
+  CrossAppRedirectConfig,
+  CrossAppSessionConfig,
+} from "../types";
 
 /**
  * Module override configuration
@@ -79,6 +85,8 @@ export interface AuthSDKConfig {
   features: AuthFeatureFlags;
   /** Module overrides */
   modules?: Record<string, ModuleOverride>;
+  /** Cross-app contract options for redirects and session behavior */
+  crossApp?: CrossAppConfig;
 }
 
 /**
@@ -90,6 +98,7 @@ export interface AuthSDKConfigInput {
   auth: AuthAppConfig;
   features?: Partial<AuthFeatureFlags>;
   modules?: Record<string, ModuleOverride>;
+  crossApp?: CrossAppConfig;
 }
 
 /**
@@ -124,6 +133,7 @@ export function createAuthConfig(input: AuthSDKConfigInput): AuthSDKConfig {
     auth: input.auth,
     features: createFeatureFlags(input.features),
     modules: input.modules,
+    crossApp: input.crossApp,
   };
 }
 
@@ -178,6 +188,27 @@ export function validateAuthConfig(config: AuthSDKConfig): ValidationResult {
     );
   }
 
+  const crossAppRedirects = config.crossApp?.redirects;
+  if (crossAppRedirects?.appUrl && !isValidUrl(crossAppRedirects.appUrl)) {
+    errors.push("crossApp.redirects.appUrl must be a valid URL");
+  }
+  if (
+    crossAppRedirects?.fallbackPath &&
+    !isValidRelativeFallbackPath(crossAppRedirects.fallbackPath)
+  ) {
+    errors.push("crossApp.redirects.fallbackPath must start with a single '/'");
+  }
+  if (crossAppRedirects?.allowedDomains) {
+    for (const domain of crossAppRedirects.allowedDomains) {
+      if (!isValidAllowedRedirectDomain(domain)) {
+        errors.push(
+          "crossApp.redirects.allowedDomains entries must be hostnames or host:port values without scheme or path"
+        );
+        break;
+      }
+    }
+  }
+
   return {
     valid: errors.length === 0,
     errors,
@@ -205,4 +236,15 @@ function isValidCookieDomain(domain: string): boolean {
   // Cookie domain should start with a dot for subdomain sharing
   // or be a valid hostname
   return domain.startsWith(".") || /^[a-z0-9.-]+$/i.test(domain);
+}
+
+function isValidRelativeFallbackPath(path: string): boolean {
+  return path.startsWith("/") && !path.startsWith("//");
+}
+
+function isValidAllowedRedirectDomain(domain: string): boolean {
+  if (!domain) return false;
+  if (domain.includes("://")) return false;
+  if (domain.includes("/")) return false;
+  return /^[a-z0-9.-]+(?::\d{1,5})?$/i.test(domain);
 }

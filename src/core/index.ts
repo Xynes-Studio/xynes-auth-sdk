@@ -35,6 +35,9 @@ export {
   type SupabaseConfig,
   type ApiConfig,
   type AuthAppConfig,
+  type CrossAppConfig,
+  type CrossAppRedirectConfig,
+  type CrossAppSessionConfig,
   type ModuleOverride,
   type ValidationResult,
 } from "./config";

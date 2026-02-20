@@ -120,17 +120,45 @@ export type AuthErrorCode =
 /**
  * SDK configuration
  */
+export interface CrossAppRedirectConfig {
+  /** Consumer app base URL used for cross-app redirects */
+  appUrl?: string;
+  /**
+   * Redirect allowlist as hostnames or host:port (no scheme/path)
+   * @example ['xynes.com', 'localhost:3000']
+   */
+  allowedDomains?: string[];
+  /** Safe fallback route used when redirect is invalid */
+  fallbackPath?: string;
+}
+
+export interface CrossAppSessionConfig {
+  /** Cookie domain override for cross-app sessions */
+  cookieDomain?: string;
+  /** Force secure cookie semantics when required */
+  secureCookies?: boolean;
+  /** Session cookie name override */
+  cookieName?: string;
+}
+
+export interface CrossAppConfig {
+  redirects?: CrossAppRedirectConfig;
+  session?: CrossAppSessionConfig;
+}
+
 export interface AuthConfig {
   supabaseUrl: string;
   supabaseKey: string;
   apiBaseUrl: string;
   authAppUrl: string;
+  appUrl?: string;
   cookieDomain?: string;
   /**
    * Allowed domains for redirect URLs (security: prevents open redirects)
    * @example ['xynes.com', 'localhost:3000']
    */
   allowedRedirectDomains?: string[];
+  crossApp?: CrossAppConfig;
 }
 
 /**

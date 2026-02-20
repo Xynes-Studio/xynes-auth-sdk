@@ -19,6 +19,19 @@ The `@xynes/auth-sdk` is designed as a modular, plugin-based authentication SDK 
 | **Security-first** | Secure defaults, httpOnly cookies, input validation |
 | **Testable** | Pure functions extracted for easy testing |
 
+## Global Engineering Standards (React + Next.js Consumers)
+
+- Keep SDK internals framework-agnostic where possible; React bindings stay in `src/providers`, `src/hooks`, and `src/components`.
+- For Next.js consumers, pass runtime values via `createAuthConfig` and avoid environment reads inside SDK runtime modules.
+- Keep redirect/security logic centralized in `src/utils/redirect.ts`; do not duplicate redirect validation in providers/hooks/components.
+- Prefer additive, backward-compatible config changes by making new fields optional and validated.
+- Keep public API discoverable through `src/index.ts` exports and mirrored usage examples in `README.md`.
+- Use folder segregation consistently:
+  - `src/core` for config/flags/registry contracts.
+  - `src/types` for shared type contracts.
+  - `src/utils` for pure Tier 1 logic.
+  - `src/providers/hooks/components` for React runtime integration.
+
 ## Folder Structure
 
 ```
@@ -63,6 +76,7 @@ xynes-auth-sdk/
 │   └── index.ts                 # 📦 Public API
 │
 ├── docs/                        # 📚 Documentation
+│   ├── DEVELOPER.md             # Contribution standards
 │   ├── TESTING.md               # Testing guide
 │   └── ARCHITECTURE.md          # This file
 │

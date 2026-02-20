@@ -31,6 +31,9 @@ export type {
   SupabaseConfig,
   ApiConfig,
   AuthAppConfig,
+  CrossAppConfig,
+  CrossAppRedirectConfig,
+  CrossAppSessionConfig,
   ModuleOverride,
   ValidationResult as ConfigValidationResult,
 } from "./core";
@@ -92,6 +95,8 @@ export {
   isValidRedirectUrl,
   getSafeRedirectUrl,
   buildAuthRedirectUrl,
+  buildAuthLoginUrl,
+  buildAuthLogoutUrl,
 } from "./utils/redirect";
 
 export { getCsrfToken } from "./utils/csrf";

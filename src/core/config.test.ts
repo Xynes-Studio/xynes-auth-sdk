@@ -89,6 +89,33 @@ describe("createAuthConfig", () => {
       workspace: { enabled: false },
     });
   });
+
+  it("should include cross-app redirect and session settings when provided", () => {
+    const config = createAuthConfig({
+      ...validConfig,
+      crossApp: {
+        redirects: {
+          appUrl: "https://cms.example.com",
+          allowedDomains: ["example.com", "localhost:3000"],
+          fallbackPath: "/dashboard",
+        },
+        session: {
+          cookieDomain: ".example.com",
+          secureCookies: true,
+          cookieName: "xynes_session",
+        },
+      },
+    });
+
+    expect(config.crossApp?.redirects?.appUrl).toBe("https://cms.example.com");
+    expect(config.crossApp?.redirects?.allowedDomains).toEqual([
+      "example.com",
+      "localhost:3000",
+    ]);
+    expect(config.crossApp?.session?.cookieDomain).toBe(".example.com");
+    expect(config.crossApp?.session?.secureCookies).toBe(true);
+    expect(config.crossApp?.session?.cookieName).toBe("xynes_session");
+  });
 });
 
 describe("validateAuthConfig", () => {
@@ -384,5 +411,87 @@ describe("validateAuthConfig", () => {
 
     expect(result.valid).toBe(false);
     expect(result.errors).toContain("supabase.url must be a valid URL");
+  });
+
+  it("should return error for invalid cross-app redirects.appUrl", () => {
+    const config = {
+      supabase: {
+        url: "https://test.supabase.co",
+        anonKey: "test-key",
+      },
+      api: {
+        baseUrl: "https://api.example.com",
+      },
+      auth: {
+        appUrl: "https://auth.example.com",
+      },
+      crossApp: {
+        redirects: {
+          appUrl: "not-a-valid-url",
+        },
+      },
+      features: {} as AuthSDKConfig["features"],
+    };
+
+    const result = validateAuthConfig(config as AuthSDKConfig);
+
+    expect(result.valid).toBe(false);
+    expect(result.errors).toContain("crossApp.redirects.appUrl must be a valid URL");
+  });
+
+  it("should return error when cross-app redirect fallback path is not absolute", () => {
+    const config = {
+      supabase: {
+        url: "https://test.supabase.co",
+        anonKey: "test-key",
+      },
+      api: {
+        baseUrl: "https://api.example.com",
+      },
+      auth: {
+        appUrl: "https://auth.example.com",
+      },
+      crossApp: {
+        redirects: {
+          fallbackPath: "dashboard",
+        },
+      },
+      features: {} as AuthSDKConfig["features"],
+    };
+
+    const result = validateAuthConfig(config as AuthSDKConfig);
+
+    expect(result.valid).toBe(false);
+    expect(result.errors).toContain(
+      "crossApp.redirects.fallbackPath must start with a single '/'"
+    );
+  });
+
+  it("should return error when cross-app allowed domains contain URL schemes", () => {
+    const config = {
+      supabase: {
+        url: "https://test.supabase.co",
+        anonKey: "test-key",
+      },
+      api: {
+        baseUrl: "https://api.example.com",
+      },
+      auth: {
+        appUrl: "https://auth.example.com",
+      },
+      crossApp: {
+        redirects: {
+          allowedDomains: ["https://example.com"],
+        },
+      },
+      features: {} as AuthSDKConfig["features"],
+    };
+
+    const result = validateAuthConfig(config as AuthSDKConfig);
+
+    expect(result.valid).toBe(false);
+    expect(result.errors).toContain(
+      "crossApp.redirects.allowedDomains entries must be hostnames or host:port values without scheme or path"
+    );
   });
 });

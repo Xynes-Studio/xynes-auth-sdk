@@ -61,6 +61,20 @@ pnpm test:coverage
 pnpm test src/core/module-registry.test.ts
 ```
 
+## TDD Workflow Requirement
+
+For all feature work and bug fixes, follow strict Red-Green-Refactor:
+
+1. Add or update the test first.
+2. Run only the relevant tests and confirm they fail for the expected reason.
+3. Implement the minimal code to pass.
+4. Re-run focused tests, then run repo-wide verification (`pnpm test:coverage`, `pnpm lint`).
+
+Coverage gates (ADR-001 aligned):
+- Global coverage must remain >= 80%.
+- Tier 1 pure-function modules should target 100% coverage.
+- New redirect/security logic must include valid, invalid, and fallback-path test cases.
+
 ## Test File Organization
 
 Following ADR-001 naming conventions:

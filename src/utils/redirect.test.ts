@@ -3,6 +3,8 @@ import {
   isValidRedirectUrl,
   getSafeRedirectUrl,
   buildAuthRedirectUrl,
+  buildAuthLoginUrl,
+  buildAuthLogoutUrl,
 } from "./redirect";
 
 describe("redirect utilities", () => {
@@ -57,6 +59,12 @@ describe("redirect utilities", () => {
     it("should return false for invalid URLs", () => {
       expect(isValidRedirectUrl("not-a-url", allowedDomains)).toBe(false);
       expect(isValidRedirectUrl("", allowedDomains)).toBe(false);
+    });
+
+    it("should reject non-http protocols even when host matches allowlist", () => {
+      expect(
+        isValidRedirectUrl("ftp://cms.xynes.com/dashboard", allowedDomains)
+      ).toBe(false);
     });
 
     it("should handle URLs with encoded characters", () => {
@@ -157,6 +165,85 @@ describe("redirect utilities", () => {
     it("should build URL without redirect param if not provided", () => {
       const url = buildAuthRedirectUrl(authAppUrl, "login");
       expect(url).toBe("https://auth.xynes.com/login");
+    });
+  });
+
+  describe("buildAuthLoginUrl", () => {
+    const authAppUrl = "https://auth.xynes.com";
+    const allowedDomains = ["xynes.com", "localhost:3000"];
+
+    it("should include safe absolute redirect target", () => {
+      const url = buildAuthLoginUrl({
+        authAppUrl,
+        redirectUrl: "https://cms.xynes.com/dashboard?tab=drafts",
+        allowedDomains,
+      });
+      expect(url).toBe(
+        "https://auth.xynes.com/login?redirect=https%3A%2F%2Fcms.xynes.com%2Fdashboard%3Ftab%3Ddrafts"
+      );
+    });
+
+    it("should omit unsafe redirect when no fallback is provided", () => {
+      const url = buildAuthLoginUrl({
+        authAppUrl,
+        redirectUrl: "https://evil.com/phishing",
+        allowedDomains,
+      });
+      expect(url).toBe("https://auth.xynes.com/login");
+    });
+
+    it("should use fallback redirect when candidate is unsafe", () => {
+      const url = buildAuthLoginUrl({
+        authAppUrl,
+        redirectUrl: "javascript:alert(1)",
+        allowedDomains,
+        fallbackRedirectUrl: "/dashboard",
+      });
+      expect(url).toBe("https://auth.xynes.com/login?redirect=%2Fdashboard");
+    });
+
+    it("should validate candidate when allowedDomains is empty", () => {
+      const url = buildAuthLoginUrl({
+        authAppUrl,
+        redirectUrl: "javascript:alert(1)",
+        fallbackRedirectUrl: "/dashboard",
+      });
+      expect(url).toBe("https://auth.xynes.com/login?redirect=%2Fdashboard");
+    });
+
+    it("should reject absolute fallback when allowedDomains is empty", () => {
+      const url = buildAuthLoginUrl({
+        authAppUrl,
+        redirectUrl: "javascript:alert(1)",
+        fallbackRedirectUrl: "https://cms.xynes.com/dashboard",
+      });
+      expect(url).toBe("https://auth.xynes.com/login");
+    });
+  });
+
+  describe("buildAuthLogoutUrl", () => {
+    const authAppUrl = "https://auth.xynes.com";
+    const allowedDomains = ["xynes.com", "localhost:3000"];
+
+    it("should build logout URL with safe redirect", () => {
+      const url = buildAuthLogoutUrl({
+        authAppUrl,
+        redirectUrl: "https://cms.xynes.com/login",
+        allowedDomains,
+      });
+      expect(url).toBe(
+        "https://auth.xynes.com/logout?redirect=https%3A%2F%2Fcms.xynes.com%2Flogin"
+      );
+    });
+
+    it("should support custom redirect query param", () => {
+      const url = buildAuthLogoutUrl({
+        authAppUrl,
+        redirectUrl: "/signed-out",
+        allowedDomains,
+        redirectParamName: "returnTo",
+      });
+      expect(url).toBe("https://auth.xynes.com/logout?returnTo=%2Fsigned-out");
     });
   });
 });
