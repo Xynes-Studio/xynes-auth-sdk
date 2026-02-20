@@ -316,11 +316,11 @@ export default function RootLayout({ children }) {
 ```typescript
 // app/(dashboard)/page.tsx
 'use client';
-import { useAuth, useWorkspace, AuthGuard } from '@xynes/auth-sdk';
+import { AuthGuard } from '@xynes/auth-sdk';
 
 export default function DashboardPage() {
   return (
-    <AuthGuard onUnauthenticated={() => redirectToLogin()}>
+    <AuthGuard unauthenticatedMode="redirectToAuth">
       <DashboardContent />
     </AuthGuard>
   );

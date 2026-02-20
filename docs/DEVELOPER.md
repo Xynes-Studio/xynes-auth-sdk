@@ -17,6 +17,14 @@ This guide captures implementation standards for contributors changing `@xynes/a
 - Preserve backward compatibility: new config fields must be optional unless explicitly planned as a breaking change.
 - Redirect behavior must always use shared redirect helpers instead of ad hoc URL handling.
 
+### AuthGuard Standards (Next.js App Router + React)
+
+- Use `AuthGuard` in client components only (`"use client"`), because it depends on hooks/effects.
+- Prefer `unauthenticatedMode="redirectToAuth"` for consumer apps; this keeps redirect construction centralized in SDK `useAuth().redirectToLogin`.
+- Use `returnUrl` only when you need an explicit override. Otherwise rely on current URL fallback inside `redirectToLogin`.
+- Keep `optional` only for truly public or mixed-access screens; protected pages should not set `optional`.
+- Do not duplicate redirect logic with direct `window.location.href = .../login?...` in app code; this introduces security drift and future maintenance cost.
+
 ## Security Standards
 
 - Reject unsafe redirect schemes (`javascript:`, `data:`, non-HTTP(S) absolute URLs).

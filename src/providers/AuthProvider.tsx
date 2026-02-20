@@ -386,16 +386,33 @@ export function AuthProvider({
    * Redirect to login page
    * @security Validates redirect URL against allowedRedirectDomains to prevent open redirects
    */
+  const resolveSafeAuthRedirectTarget = useCallback(
+    (targetUrl: string): string | undefined => {
+      const allowedDomains =
+        config.crossApp?.redirects?.allowedDomains ??
+        config.allowedRedirectDomains ??
+        [];
+
+      if (allowedDomains.length > 0) {
+        return isValidRedirectUrl(targetUrl, allowedDomains)
+          ? targetUrl
+          : undefined;
+      }
+
+      // Fail-closed default: without an explicit allowlist, only relative paths are accepted.
+      if (targetUrl.startsWith("/") && !targetUrl.startsWith("//")) {
+        return targetUrl;
+      }
+
+      return undefined;
+    },
+    [config.crossApp?.redirects?.allowedDomains, config.allowedRedirectDomains]
+  );
+
   const redirectToLogin = useCallback(
     (returnUrl?: string): void => {
       const targetUrl = returnUrl || window.location.href;
-      // Security: Validate redirect URL if allowedRedirectDomains is configured
-      const safeRedirectUrl =
-        config.allowedRedirectDomains &&
-        config.allowedRedirectDomains.length > 0 &&
-        !isValidRedirectUrl(targetUrl, config.allowedRedirectDomains)
-          ? undefined // Don't pass unsafe redirect URL
-          : targetUrl;
+      const safeRedirectUrl = resolveSafeAuthRedirectTarget(targetUrl);
 
       const url = buildAuthRedirectUrl(
         config.authAppUrl,
@@ -404,7 +421,7 @@ export function AuthProvider({
       );
       window.location.href = url;
     },
-    [config.authAppUrl, config.allowedRedirectDomains]
+    [config.authAppUrl, resolveSafeAuthRedirectTarget]
   );
 
   /**
@@ -414,13 +431,7 @@ export function AuthProvider({
   const redirectToSignup = useCallback(
     (returnUrl?: string): void => {
       const targetUrl = returnUrl || window.location.href;
-      // Security: Validate redirect URL if allowedRedirectDomains is configured
-      const safeRedirectUrl =
-        config.allowedRedirectDomains &&
-        config.allowedRedirectDomains.length > 0 &&
-        !isValidRedirectUrl(targetUrl, config.allowedRedirectDomains)
-          ? undefined // Don't pass unsafe redirect URL
-          : targetUrl;
+      const safeRedirectUrl = resolveSafeAuthRedirectTarget(targetUrl);
 
       const url = buildAuthRedirectUrl(
         config.authAppUrl,
@@ -429,7 +440,7 @@ export function AuthProvider({
       );
       window.location.href = url;
     },
-    [config.authAppUrl, config.allowedRedirectDomains]
+    [config.authAppUrl, resolveSafeAuthRedirectTarget]
   );
 
   /**

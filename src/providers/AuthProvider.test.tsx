@@ -965,6 +965,90 @@ describe("AuthProvider", () => {
       expect(window.location.href).toContain("redirect=");
     });
 
+    it("should reject absolute redirect when no allowlist is configured", async () => {
+      mockGetSession.mockResolvedValue({ data: { session: null } });
+
+      Object.defineProperty(window, "location", {
+        value: {
+          href: "https://app.test.com/protected",
+          origin: "https://app.test.com",
+        },
+        writable: true,
+      });
+
+      const user = userEvent.setup();
+      render(
+        <AuthProvider config={defaultConfig}>
+          <TestConsumerWithoutReturnUrl />
+        </AuthProvider>
+      );
+
+      await waitFor(() => {
+        expect(screen.getByTestId("loading")).toHaveTextContent("loaded");
+      });
+
+      await user.click(screen.getByText("Redirect No Param"));
+
+      expect(window.location.href).toBe("https://auth.test.com/login");
+      expect(window.location.href).not.toContain("redirect=");
+    });
+
+    it("should allow relative redirect when no allowlist is configured", async () => {
+      mockGetSession.mockResolvedValue({ data: { session: null } });
+
+      const user = userEvent.setup();
+      renderWithProvider();
+
+      await waitFor(() => {
+        expect(screen.getByTestId("loading")).toHaveTextContent("loaded");
+      });
+
+      await user.click(screen.getByText("Redirect Login"));
+
+      expect(window.location.href).toContain("auth.test.com/login");
+      expect(window.location.href).toContain("redirect=%2Fdashboard");
+    });
+
+    it("should prefer crossApp allowlist as canonical when validating absolute redirects", async () => {
+      mockGetSession.mockResolvedValue({ data: { session: null } });
+
+      const configWithCanonicalCrossAppAllowlist: AuthConfig = {
+        ...defaultConfig,
+        allowedRedirectDomains: ["different-domain.com"],
+        crossApp: {
+          redirects: {
+            allowedDomains: ["app.test.com"],
+          },
+        },
+      };
+
+      Object.defineProperty(window, "location", {
+        value: {
+          href: "https://app.test.com/protected?tab=drafts",
+          origin: "https://app.test.com",
+        },
+        writable: true,
+      });
+
+      const user = userEvent.setup();
+      render(
+        <AuthProvider config={configWithCanonicalCrossAppAllowlist}>
+          <TestConsumerWithoutReturnUrl />
+        </AuthProvider>
+      );
+
+      await waitFor(() => {
+        expect(screen.getByTestId("loading")).toHaveTextContent("loaded");
+      });
+
+      await user.click(screen.getByText("Redirect No Param"));
+
+      expect(window.location.href).toContain("auth.test.com/login");
+      expect(window.location.href).toContain(
+        "redirect=https%3A%2F%2Fapp.test.com%2Fprotected%3Ftab%3Ddrafts"
+      );
+    });
+
     it("should omit redirect URL when domain is not in allowedRedirectDomains", async () => {
       mockGetSession.mockResolvedValue({ data: { session: null } });
 
@@ -997,23 +1081,6 @@ describe("AuthProvider", () => {
 
       // Should NOT contain redirect param when URL is from untrusted domain
       expect(window.location.href).not.toContain("redirect=");
-    });
-
-    it("should allow redirect when allowedRedirectDomains is not configured", async () => {
-      mockGetSession.mockResolvedValue({ data: { session: null } });
-
-      // Config without allowedRedirectDomains (undefined)
-      const user = userEvent.setup();
-      renderWithProvider(); // uses defaultConfig which has no allowedRedirectDomains
-
-      await waitFor(() => {
-        expect(screen.getByTestId("loading")).toHaveTextContent("loaded");
-      });
-
-      await user.click(screen.getByText("Redirect Signup"));
-
-      // Should include redirect since no domain restrictions are configured
-      expect(window.location.href).toContain("redirect=");
     });
   });
 });

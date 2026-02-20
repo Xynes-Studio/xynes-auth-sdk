@@ -1,7 +1,33 @@
 "use client";
 
-import { useEffect, type ReactNode } from "react";
+import { useEffect, useRef, type ReactNode } from "react";
 import { useAuth } from "../providers/AuthProvider";
+
+const REDIRECT_DEDUP_WINDOW_MS = 1500;
+const recentRedirectAttempts = new Map<string, number>();
+
+function pruneExpiredRedirectAttempts(now: number): void {
+  for (const [key, timestamp] of recentRedirectAttempts.entries()) {
+    if (now - timestamp > REDIRECT_DEDUP_WINDOW_MS) {
+      recentRedirectAttempts.delete(key);
+    }
+  }
+}
+
+function hasRecentRedirectAttempt(key: string, now: number): boolean {
+  const previous = recentRedirectAttempts.get(key);
+  if (!previous) {
+    return false;
+  }
+  return now - previous <= REDIRECT_DEDUP_WINDOW_MS;
+}
+
+/**
+ * @internal test helper for isolating redirect cache state in component tests.
+ */
+export function __resetAuthGuardRedirectCacheForTests(): void {
+  recentRedirectAttempts.clear();
+}
 
 /**
  * AuthGuard props
@@ -20,6 +46,17 @@ export interface AuthGuardProps {
    * If true, allows unauthenticated access (for public pages that optionally use auth)
    */
   optional?: boolean;
+  /**
+   * Strategy to run when unauthenticated.
+   * - callback: invokes onUnauthenticated when provided.
+   * - redirectToAuth: calls useAuth().redirectToLogin with optional returnUrl.
+   */
+  unauthenticatedMode?: "callback" | "redirectToAuth";
+  /**
+   * Explicit URL to use as auth-app return target when unauthenticatedMode=redirectToAuth.
+   * Defaults to current location inside redirectToLogin when omitted.
+   */
+  returnUrl?: string;
 }
 
 /**
@@ -30,14 +67,48 @@ export function AuthGuard({
   onUnauthenticated,
   loadingComponent = <DefaultLoadingComponent />,
   optional = false,
+  unauthenticatedMode = "callback",
+  returnUrl,
 }: AuthGuardProps) {
-  const { isLoading, isAuthenticated } = useAuth();
+  const { isLoading, isAuthenticated, redirectToLogin } = useAuth();
+  const hasHandledUnauthenticatedRef = useRef(false);
 
   useEffect(() => {
-    if (!isLoading && !isAuthenticated && !optional) {
-      onUnauthenticated?.();
+    if (isLoading || optional || isAuthenticated) {
+      hasHandledUnauthenticatedRef.current = false;
+      return;
     }
-  }, [isLoading, isAuthenticated, optional, onUnauthenticated]);
+
+    if (hasHandledUnauthenticatedRef.current) {
+      return;
+    }
+
+    hasHandledUnauthenticatedRef.current = true;
+    if (unauthenticatedMode === "redirectToAuth") {
+      const target = returnUrl ?? window.location.href;
+      const redirectKey = `redirectToAuth:${target}`;
+      const now = Date.now();
+      pruneExpiredRedirectAttempts(now);
+
+      if (hasRecentRedirectAttempt(redirectKey, now)) {
+        return;
+      }
+
+      recentRedirectAttempts.set(redirectKey, now);
+      redirectToLogin(returnUrl);
+      return;
+    }
+
+    onUnauthenticated?.();
+  }, [
+    isLoading,
+    isAuthenticated,
+    optional,
+    onUnauthenticated,
+    redirectToLogin,
+    returnUrl,
+    unauthenticatedMode,
+  ]);
 
   // Show loading while checking auth
   if (isLoading) {

@@ -74,6 +74,7 @@ Coverage gates (ADR-001 aligned):
 - Global coverage must remain >= 80%.
 - Tier 1 pure-function modules should target 100% coverage.
 - New redirect/security logic must include valid, invalid, and fallback-path test cases.
+- New guard behavior must include authenticated render path, unauthenticated callback mode (backward compatibility), unauthenticated redirect mode, and single-redirect/no-loop behavior.
 
 ## Test File Organization
 
