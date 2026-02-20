@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen } from "@testing-library/react";
-import { AuthGuard } from "./AuthGuard";
+import { AuthGuard, __resetAuthGuardRedirectCacheForTests } from "./AuthGuard";
 import * as AuthProviderModule from "../providers/AuthProvider";
 
 const mockUseAuth = vi.spyOn(AuthProviderModule, "useAuth");
@@ -33,6 +33,8 @@ function setAuthState({
 describe("AuthGuard", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    __resetAuthGuardRedirectCacheForTests();
+    vi.useRealTimers();
   });
 
   it("renders loading component while auth is loading", () => {
@@ -124,6 +126,63 @@ describe("AuthGuard", () => {
     );
 
     expect(mockRedirectToLogin).toHaveBeenCalledTimes(1);
+  });
+
+  it("does not redirect again on immediate remount for the same target", () => {
+    setAuthState({ isLoading: false, isAuthenticated: false });
+
+    const { unmount } = render(
+      <AuthGuard
+        unauthenticatedMode="redirectToAuth"
+        returnUrl="https://cms.test.com/protected"
+      >
+        <div>secret</div>
+      </AuthGuard>
+    );
+
+    expect(mockRedirectToLogin).toHaveBeenCalledTimes(1);
+    unmount();
+
+    render(
+      <AuthGuard
+        unauthenticatedMode="redirectToAuth"
+        returnUrl="https://cms.test.com/protected"
+      >
+        <div>secret</div>
+      </AuthGuard>
+    );
+
+    expect(mockRedirectToLogin).toHaveBeenCalledTimes(1);
+  });
+
+  it("allows redirect again after dedupe window expires", () => {
+    vi.useFakeTimers();
+    setAuthState({ isLoading: false, isAuthenticated: false });
+
+    const { unmount } = render(
+      <AuthGuard
+        unauthenticatedMode="redirectToAuth"
+        returnUrl="https://cms.test.com/protected"
+      >
+        <div>secret</div>
+      </AuthGuard>
+    );
+
+    expect(mockRedirectToLogin).toHaveBeenCalledTimes(1);
+    unmount();
+
+    vi.advanceTimersByTime(1600);
+
+    render(
+      <AuthGuard
+        unauthenticatedMode="redirectToAuth"
+        returnUrl="https://cms.test.com/protected"
+      >
+        <div>secret</div>
+      </AuthGuard>
+    );
+
+    expect(mockRedirectToLogin).toHaveBeenCalledTimes(2);
   });
 
   it("renders children for optional guard when unauthenticated", () => {

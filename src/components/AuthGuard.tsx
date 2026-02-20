@@ -3,6 +3,32 @@
 import { useEffect, useRef, type ReactNode } from "react";
 import { useAuth } from "../providers/AuthProvider";
 
+const REDIRECT_DEDUP_WINDOW_MS = 1500;
+const recentRedirectAttempts = new Map<string, number>();
+
+function pruneExpiredRedirectAttempts(now: number): void {
+  for (const [key, timestamp] of recentRedirectAttempts.entries()) {
+    if (now - timestamp > REDIRECT_DEDUP_WINDOW_MS) {
+      recentRedirectAttempts.delete(key);
+    }
+  }
+}
+
+function hasRecentRedirectAttempt(key: string, now: number): boolean {
+  const previous = recentRedirectAttempts.get(key);
+  if (!previous) {
+    return false;
+  }
+  return now - previous <= REDIRECT_DEDUP_WINDOW_MS;
+}
+
+/**
+ * @internal test helper for isolating redirect cache state in component tests.
+ */
+export function __resetAuthGuardRedirectCacheForTests(): void {
+  recentRedirectAttempts.clear();
+}
+
 /**
  * AuthGuard props
  */
@@ -59,6 +85,16 @@ export function AuthGuard({
 
     hasHandledUnauthenticatedRef.current = true;
     if (unauthenticatedMode === "redirectToAuth") {
+      const target = returnUrl ?? window.location.href;
+      const redirectKey = `redirectToAuth:${target}`;
+      const now = Date.now();
+      pruneExpiredRedirectAttempts(now);
+
+      if (hasRecentRedirectAttempt(redirectKey, now)) {
+        return;
+      }
+
+      recentRedirectAttempts.set(redirectKey, now);
       redirectToLogin(returnUrl);
       return;
     }
