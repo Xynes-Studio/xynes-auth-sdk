@@ -201,6 +201,24 @@ describe("redirect utilities", () => {
       });
       expect(url).toBe("https://auth.xynes.com/login?redirect=%2Fdashboard");
     });
+
+    it("should validate candidate when allowedDomains is empty", () => {
+      const url = buildAuthLoginUrl({
+        authAppUrl,
+        redirectUrl: "javascript:alert(1)",
+        fallbackRedirectUrl: "/dashboard",
+      });
+      expect(url).toBe("https://auth.xynes.com/login?redirect=%2Fdashboard");
+    });
+
+    it("should reject absolute fallback when allowedDomains is empty", () => {
+      const url = buildAuthLoginUrl({
+        authAppUrl,
+        redirectUrl: "javascript:alert(1)",
+        fallbackRedirectUrl: "https://cms.xynes.com/dashboard",
+      });
+      expect(url).toBe("https://auth.xynes.com/login");
+    });
   });
 
   describe("buildAuthLogoutUrl", () => {

@@ -125,7 +125,7 @@ function resolveRedirectTarget({
       ? getSafeRedirectUrl(redirectUrl ?? "", "", domains)
       : redirectUrl ?? "";
 
-  if (candidate) {
+  if (candidate && isValidRedirectUrl(candidate, domains)) {
     return candidate;
   }
 
@@ -134,7 +134,7 @@ function resolveRedirectTarget({
     return undefined;
   }
 
-  if (domains.length === 0 || isValidRedirectUrl(fallback, domains)) {
+  if (isValidRedirectUrl(fallback, domains)) {
     return fallback;
   }
 
