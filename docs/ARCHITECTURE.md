@@ -319,13 +319,20 @@ export default function RootLayout({ children }) {
 import { AuthGuard } from '@xynes/auth-sdk';
 
 export default function DashboardPage() {
+  // Default behaviour (since FE-AUTH-BUG-002): when the visitor is not
+  // authenticated, AuthGuard calls `redirectToLogin()` from the AuthProvider
+  // context, which navigates to `${authAppUrl}/login?redirect=<current-url>`.
   return (
-    <AuthGuard unauthenticatedMode="redirectToAuth">
+    <AuthGuard>
       <DashboardContent />
     </AuthGuard>
   );
 }
 ```
+
+For opt-out paths (`optional`, `unauthenticatedMode="callback"`,
+`onUnauthenticated`, `returnUrl`) see the README and the `AuthGuardProps`
+docstring in `src/components/AuthGuard.tsx`.
 
 ## Future Roadmap
 

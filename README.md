@@ -93,12 +93,33 @@ export function UserMenu() {
 import { AuthGuard } from '@xynes/auth-sdk';
 
 export default function DashboardLayout({ children }) {
-  return (
-    <AuthGuard unauthenticatedMode="redirectToAuth">
-      {children}
-    </AuthGuard>
-  );
+  // AuthGuard redirects unauthenticated visitors to the configured auth-app
+  // login URL by default (since FE-AUTH-BUG-002), with a safe `?redirect=`
+  // back to the original page. No callback wiring required.
+  return <AuthGuard>{children}</AuthGuard>;
 }
+```
+
+**Opt-out paths:**
+
+```tsx
+// 1. Render children even when unauthenticated.
+<AuthGuard optional>{children}</AuthGuard>
+
+// 2. Legacy callback mode (does nothing without onUnauthenticated; renders
+//    the loading component otherwise).
+<AuthGuard unauthenticatedMode="callback">{children}</AuthGuard>
+
+// 3. Provide a custom callback (always wins over the default redirect).
+<AuthGuard onUnauthenticated={() => router.replace("/landing")}>
+  {children}
+</AuthGuard>
+
+// 4. Override the post-login return URL (still flows through the
+//    allowlist that `useAuth().redirectToLogin()` enforces).
+<AuthGuard returnUrl="https://app.example.com/dashboard/integrations">
+  {children}
+</AuthGuard>
 ```
 
 ## Core Architecture

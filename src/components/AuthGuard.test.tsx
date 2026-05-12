@@ -68,7 +68,10 @@ describe("AuthGuard", () => {
     const onUnauthenticated = vi.fn();
 
     render(
-      <AuthGuard onUnauthenticated={onUnauthenticated}>
+      <AuthGuard
+        unauthenticatedMode="callback"
+        onUnauthenticated={onUnauthenticated}
+      >
         <div>secret</div>
       </AuthGuard>
     );
@@ -195,6 +198,51 @@ describe("AuthGuard", () => {
     );
 
     expect(screen.getByText("public")).toBeInTheDocument();
+    expect(mockRedirectToLogin).not.toHaveBeenCalled();
+  });
+
+  it("redirects to auth-app login by default when unauthenticated (FE-AUTH-BUG-002)", () => {
+    setAuthState({ isLoading: false, isAuthenticated: false });
+
+    render(
+      <AuthGuard>
+        <div>secret</div>
+      </AuthGuard>
+    );
+
+    expect(mockRedirectToLogin).toHaveBeenCalledTimes(1);
+    expect(mockRedirectToLogin).toHaveBeenCalledWith(undefined);
+    expect(screen.queryByText("secret")).not.toBeInTheDocument();
+  });
+
+  it("invokes onUnauthenticated callback in preference to the default redirect (FE-AUTH-BUG-002 back-compat)", () => {
+    setAuthState({ isLoading: false, isAuthenticated: false });
+    const onUnauthenticated = vi.fn();
+
+    render(
+      <AuthGuard onUnauthenticated={onUnauthenticated}>
+        <div>secret</div>
+      </AuthGuard>
+    );
+
+    expect(onUnauthenticated).toHaveBeenCalledTimes(1);
+    expect(mockRedirectToLogin).not.toHaveBeenCalled();
+  });
+
+  it("renders the loading component and does NOT redirect when unauthenticatedMode='callback' and no callback is provided", () => {
+    setAuthState({ isLoading: false, isAuthenticated: false });
+
+    render(
+      <AuthGuard
+        unauthenticatedMode="callback"
+        loadingComponent={<div>legacy-spinner</div>}
+      >
+        <div>secret</div>
+      </AuthGuard>
+    );
+
+    expect(screen.getByText("legacy-spinner")).toBeInTheDocument();
+    expect(screen.queryByText("secret")).not.toBeInTheDocument();
     expect(mockRedirectToLogin).not.toHaveBeenCalled();
   });
 });
