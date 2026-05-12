@@ -104,6 +104,8 @@ describe("error utilities", () => {
         "Unable to connect. Please check your internet connection.",
       session_expired: "Your session has expired. Please sign in again.",
       rate_limited: "Too many attempts. Please wait a moment and try again.",
+      invite_not_found: "This invitation is invalid or has expired.",
+      already_in_workspace: "You are already a member of this workspace.",
       unknown_error: "An unexpected error occurred. Please try again.",
     };
 
