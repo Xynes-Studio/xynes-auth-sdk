@@ -3,6 +3,8 @@ import {
   normalizeAuthError,
   isRetryableError,
   getErrorMessage,
+  getAuthErrorMessageKey,
+  AUTH_ERROR_MESSAGE_KEYS,
 } from "./errors";
 import type { AuthErrorCode } from "../types";
 
@@ -113,6 +115,81 @@ describe("error utilities", () => {
       it(`should return correct message for ${code}`, () => {
         expect(getErrorMessage(code as AuthErrorCode)).toBe(expectedMessage);
       });
+    });
+  });
+
+  describe("AUTH_ERROR_MESSAGE_KEYS", () => {
+    it("is an identity map — every value equals its key", () => {
+      for (const [code, key] of Object.entries(AUTH_ERROR_MESSAGE_KEYS)) {
+        expect(key).toBe(code);
+      }
+    });
+
+    it("includes every AuthErrorCode value", () => {
+      // Spot-check the closed set (the AuthErrorCode union is verified at
+      // compile time; this is a runtime guard that ensures the map is
+      // exhaustive in practice).
+      const expected: AuthErrorCode[] = [
+        "invalid_credentials",
+        "email_not_verified",
+        "user_not_found",
+        "email_already_exists",
+        "weak_password",
+        "invalid_email",
+        "network_error",
+        "session_expired",
+        "rate_limited",
+        "invite_not_found",
+        "already_in_workspace",
+        "unknown_error",
+      ];
+      for (const code of expected) {
+        expect(AUTH_ERROR_MESSAGE_KEYS[code]).toBe(code);
+      }
+    });
+  });
+
+  describe("getAuthErrorMessageKey", () => {
+    it("returns the same key for a known AuthErrorCode", () => {
+      expect(getAuthErrorMessageKey("invalid_credentials")).toBe(
+        "invalid_credentials",
+      );
+      expect(getAuthErrorMessageKey("network_error")).toBe("network_error");
+      expect(getAuthErrorMessageKey("unknown_error")).toBe("unknown_error");
+    });
+
+    it("falls back to 'unknown_error' for an unrecognized code", () => {
+      expect(getAuthErrorMessageKey("not_a_real_code")).toBe("unknown_error");
+      expect(getAuthErrorMessageKey("")).toBe("unknown_error");
+    });
+
+    it("coerces hostile prototype-pollution-style inputs to 'unknown_error'", () => {
+      // Defense-in-depth: an attacker who controls the upstream `error.code`
+      // value cannot use `__proto__` / `constructor` / `toString` to escape
+      // the closed catalog set, because the resolver uses
+      // `hasOwnProperty` against the AUTH_ERROR_MESSAGE_KEYS map (which is
+      // a plain object literal that does not declare those keys).
+      expect(getAuthErrorMessageKey("__proto__")).toBe("unknown_error");
+      expect(getAuthErrorMessageKey("constructor")).toBe("unknown_error");
+      expect(getAuthErrorMessageKey("toString")).toBe("unknown_error");
+      expect(getAuthErrorMessageKey("hasOwnProperty")).toBe("unknown_error");
+    });
+
+    it("treats non-string inputs as unknown (defense-in-depth)", () => {
+      // The type signature says `string`, but a hostile caller (or a
+      // malformed JSON payload deserialized as `unknown`) might pass
+      // numbers, objects, null, or undefined. All must resolve to
+      // 'unknown_error', never throw.
+      // @ts-expect-error - intentionally invalid runtime input
+      expect(getAuthErrorMessageKey(123)).toBe("unknown_error");
+      // @ts-expect-error - intentionally invalid runtime input
+      expect(getAuthErrorMessageKey(null)).toBe("unknown_error");
+      // @ts-expect-error - intentionally invalid runtime input
+      expect(getAuthErrorMessageKey(undefined)).toBe("unknown_error");
+      // @ts-expect-error - intentionally invalid runtime input
+      expect(getAuthErrorMessageKey({ code: "invalid_credentials" })).toBe(
+        "unknown_error",
+      );
     });
   });
 });
