@@ -3,7 +3,7 @@ import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { AccountsClient } from "./accounts-client";
 
 describe("AccountsClient", () => {
-  const getAccessToken = vi.fn<[], Promise<string | null>>();
+  const getAccessToken = vi.fn<() => Promise<string | null>>();
   const fetchMock = vi.fn();
 
   beforeEach(() => {

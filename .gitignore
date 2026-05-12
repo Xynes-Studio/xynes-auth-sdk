@@ -28,4 +28,12 @@ pnpm-debug.log*
 # Lock files for other package managers
 package-lock.json
 yarn.lock
+
+# pnpm content-addressable store (created when running pnpm inside this dir)
+.pnpm-store/
+
+# TypeScript incremental build info
+*.tsbuildinfo
+
+# Misc
 tmp/
