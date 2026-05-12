@@ -142,3 +142,60 @@ export function isRetryableError(errorCode: AuthErrorCode): boolean {
 export function getErrorMessage(errorCode: AuthErrorCode): string {
   return ERROR_MESSAGES[errorCode] || ERROR_MESSAGES.unknown_error;
 }
+
+/**
+ * Closed-set identity map of all valid `AuthErrorCode` values.
+ *
+ * Used by consumers (e.g. `AuthErrorAlert` in `xynes-auth-app`) to look up
+ * localized copy via `auth.errors.codes.<key>` in next-intl catalogs. Because
+ * this is the SDK's authoritative list of valid codes, any code that does
+ * NOT appear here MUST be resolved to `"unknown_error"` before it ever
+ * reaches a translation lookup — see `getAuthErrorMessageKey`.
+ *
+ * Catalog parity: the keys here MUST match the `auth.errors.codes` namespace
+ * in every locale catalog of every consumer app. If you add a new code,
+ * update both `AuthErrorCode` (in `../types`) and every consumer's
+ * `auth.errors.codes` namespace.
+ */
+export const AUTH_ERROR_MESSAGE_KEYS: Record<AuthErrorCode, AuthErrorCode> = {
+  invalid_credentials: "invalid_credentials",
+  email_not_verified: "email_not_verified",
+  user_not_found: "user_not_found",
+  email_already_exists: "email_already_exists",
+  weak_password: "weak_password",
+  invalid_email: "invalid_email",
+  network_error: "network_error",
+  session_expired: "session_expired",
+  rate_limited: "rate_limited",
+  invite_not_found: "invite_not_found",
+  already_in_workspace: "already_in_workspace",
+  unknown_error: "unknown_error",
+};
+
+/**
+ * Resolves an arbitrary error-code string to a closed-set
+ * `AuthErrorCode` key suitable for a translation-catalog lookup.
+ *
+ * @security The return value is ALWAYS one of the keys in
+ * `AUTH_ERROR_MESSAGE_KEYS`. A hostile upstream `code` value (e.g. an
+ * arbitrary string from a malformed API response) is coerced to
+ * `"unknown_error"` so it can never escape the `auth.errors.codes`
+ * namespace, never reach a `useTranslations` raw-key path, and never
+ * leak through to the rendered DOM. This is the single boundary
+ * between unvalidated network input and the closed-set catalog key
+ * space.
+ *
+ * @param errorCode - Any string (or unknown). Need not be a valid
+ *                    `AuthErrorCode`.
+ * @returns A `AuthErrorCode` from `AUTH_ERROR_MESSAGE_KEYS`. Returns
+ *          `"unknown_error"` for any unrecognized input.
+ */
+export function getAuthErrorMessageKey(errorCode: string): AuthErrorCode {
+  if (
+    typeof errorCode === "string" &&
+    Object.prototype.hasOwnProperty.call(AUTH_ERROR_MESSAGE_KEYS, errorCode)
+  ) {
+    return errorCode as AuthErrorCode;
+  }
+  return "unknown_error";
+}
