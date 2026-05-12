@@ -20,7 +20,8 @@ This guide captures implementation standards for contributors changing `@xynes/a
 ### AuthGuard Standards (Next.js App Router + React)
 
 - Use `AuthGuard` in client components only (`"use client"`), because it depends on hooks/effects.
-- Prefer `unauthenticatedMode="redirectToAuth"` for consumer apps; this keeps redirect construction centralized in SDK `useAuth().redirectToLogin`.
+- The default `unauthenticatedMode` is `"redirectToAuth"` (since FE-AUTH-BUG-002); consumer apps no longer need to pass it explicitly. Redirect construction stays centralized in SDK `useAuth().redirectToLogin`.
+- Pass `unauthenticatedMode="callback"` only when you genuinely want the legacy behaviour (the guard renders the loading component indefinitely unless you also pass `onUnauthenticated`). For a fully custom unauthenticated flow, pass an `onUnauthenticated` callback — the callback wins over the default redirect.
 - Use `returnUrl` only when you need an explicit override. Otherwise rely on current URL fallback inside `redirectToLogin`.
 - Keep `optional` only for truly public or mixed-access screens; protected pages should not set `optional`.
 - Do not duplicate redirect logic with direct `window.location.href = .../login?...` in app code; this introduces security drift and future maintenance cost.
