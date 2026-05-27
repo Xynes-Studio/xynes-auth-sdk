@@ -35,6 +35,11 @@ export interface FeatureFlags {
   xynes_invite_system: boolean;
   xynes_invite_revocation: boolean;
 
+  // CMS features
+  // STORAGE-LIVE-5: gate the CMS editor's inline storage-upload affordance.
+  // Workspace-scoped; gateway evaluates per-workspace via PostHog.
+  cms_editor_storage_uploads: boolean;
+
   // System
   xynes_maintenance_mode: boolean;
 }
@@ -66,6 +71,9 @@ export const DEFAULT_FEATURE_FLAGS: FeatureFlags = {
   // Invite (enabled by default)
   xynes_invite_system: true,
   xynes_invite_revocation: true,
+
+  // CMS features (STORAGE-LIVE-5 — default OFF per rollout plan §8)
+  cms_editor_storage_uploads: false,
 
   // System
   xynes_maintenance_mode: false,
