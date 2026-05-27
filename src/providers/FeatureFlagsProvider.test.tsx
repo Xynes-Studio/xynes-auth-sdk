@@ -73,6 +73,7 @@ describe("FeatureFlagsProvider", () => {
       xynes_workspace_multiple: true,
       xynes_invite_system: true,
       xynes_invite_revocation: true,
+      cms_editor_storage_uploads: false,
       xynes_maintenance_mode: false,
     },
     authenticated: false,
@@ -89,6 +90,10 @@ describe("FeatureFlagsProvider", () => {
 
   it("includes apps dashboard v1 flag in defaults as disabled", () => {
     expect(DEFAULT_FEATURE_FLAGS.xynes_auth_dashboard_apps_v1).toBe(false);
+  });
+
+  it("includes cms_editor_storage_uploads flag in defaults as disabled (STORAGE-LIVE-5)", () => {
+    expect(DEFAULT_FEATURE_FLAGS.cms_editor_storage_uploads).toBe(false);
   });
 
   it("fetches flags on mount and updates state", async () => {
