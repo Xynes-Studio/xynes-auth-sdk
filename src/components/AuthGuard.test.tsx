@@ -26,6 +26,7 @@ function setAuthState({
     redirectToLogin: mockRedirectToLogin,
     redirectToSignup: vi.fn(),
     refreshSession: vi.fn(),
+    refreshWorkspaces: vi.fn(),
     getAccessToken: vi.fn(),
   });
 }

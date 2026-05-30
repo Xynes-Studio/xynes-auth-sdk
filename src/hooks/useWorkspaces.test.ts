@@ -39,6 +39,7 @@ const createMockAuthValue = (overrides = {}) => ({
   signInWithOAuth: vi.fn(),
   signOut: vi.fn(),
   refreshSession: vi.fn(),
+  refreshWorkspaces: vi.fn(),
   redirectToLogin: vi.fn(),
   redirectToSignup: vi.fn(),
   getAccessToken: vi.fn(),

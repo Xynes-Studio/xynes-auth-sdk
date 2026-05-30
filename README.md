@@ -379,10 +379,31 @@ const {
   signInWithPassword, // Sign in with email/password
   signInWithOAuth,  // Sign in with OAuth provider
   signOut,          // Sign out
+  refreshSession,   // Force a Supabase session refresh + re-bootstrap
+  refreshWorkspaces, // Re-fetch /me without rotating tokens (BUG-AUTH-2)
   redirectToLogin,  // Redirect to auth app login
   redirectToSignup, // Redirect to auth app signup
+  getAccessToken,   // Get the current access token
 } = useAuth();
 ```
+
+##### `refreshWorkspaces()` (BUG-AUTH-2, 2026-05-30)
+
+Call this **after a server-side workspace mutation** (e.g. just created or
+joined a workspace) to make the in-memory `useAuth().workspaces` array
+reflect the mutation **before the next render** — so a downstream
+`useWorkspace().selectWorkspace(newId)` succeeds without a hard reload.
+
+Posture:
+
+- No-op when logged out.
+- Bypasses the per-token bootstrap dedupe latch, so a same-token caller
+  still hits `/me`.
+- On 401/403 from `/me`: signs the user out (mirrors the canonical
+  signed-out state).
+- On a transient network failure: leaves the existing in-memory
+  `workspaces` array untouched. Never throws.
+- Does **not** rotate the Supabase refresh token (that's `refreshSession()`).
 
 #### `useWorkspace()`
 

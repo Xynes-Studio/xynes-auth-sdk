@@ -138,6 +138,7 @@ function TestConsumer() {
     signInWithPassword,
     signInWithOAuth,
     refreshSession,
+    refreshWorkspaces,
     redirectToLogin,
     redirectToSignup,
   } = useAuth();
@@ -175,6 +176,7 @@ function TestConsumer() {
       <button onClick={handleOAuth}>OAuth</button>
       <button onClick={signOut}>Sign Out</button>
       <button onClick={refreshSession}>Refresh</button>
+      <button onClick={refreshWorkspaces}>Refresh Workspaces</button>
       <button onClick={() => redirectToLogin("/dashboard")}>
         Redirect Login
       </button>
@@ -781,6 +783,154 @@ describe("AuthProvider", () => {
       await waitFor(() => {
         expect(mockRefreshSession).toHaveBeenCalled();
       });
+    });
+  });
+
+  // ─────────────────────────────────────────────────────────────────
+  // BUG-AUTH-2 (2026-05-30): refreshWorkspaces
+  // ─────────────────────────────────────────────────────────────────
+  describe("Refresh Workspaces (BUG-AUTH-2)", () => {
+    it("should be a no-op when there is no active session", async () => {
+      mockGetSession.mockResolvedValue({ data: { session: null } });
+
+      const user = userEvent.setup();
+      renderWithProvider();
+
+      await waitFor(() => {
+        expect(screen.getByTestId("loading")).toHaveTextContent("loaded");
+      });
+
+      // No /me at all yet because there was no session.
+      expect(mockGetMe).not.toHaveBeenCalled();
+
+      await user.click(screen.getByText("Refresh Workspaces"));
+
+      // Still no /me — refreshWorkspaces fails closed when logged out.
+      expect(mockGetMe).not.toHaveBeenCalled();
+      expect(screen.getByTestId("authenticated")).toHaveTextContent(
+        "unauthenticated"
+      );
+    });
+
+    it("should re-fetch /me with the same session and surface a newly-created workspace without rotating tokens", async () => {
+      mockGetSession.mockResolvedValue({ data: { session: mockSession } });
+      // First /me (bootstrap on initial render): 1 workspace.
+      // Second /me (refresh after a workspace is created): 2 workspaces.
+      mockGetMe
+        .mockResolvedValueOnce({
+          user: mockUser,
+          workspaces: [mockWorkspace],
+        })
+        .mockResolvedValueOnce({
+          user: mockUser,
+          workspaces: [
+            mockWorkspace,
+            { ...mockWorkspace, id: "ws-new", slug: "new", name: "New" },
+          ],
+        });
+
+      const user = userEvent.setup();
+      renderWithProvider();
+
+      await waitFor(() => {
+        expect(screen.getByTestId("workspaces-count")).toHaveTextContent("1");
+      });
+      expect(mockGetMe).toHaveBeenCalledTimes(1);
+
+      await act(async () => {
+        await user.click(screen.getByText("Refresh Workspaces"));
+      });
+
+      // The new workspace must appear without forcing a token refresh
+      // and without forcing the consumer to reload.
+      await waitFor(() => {
+        expect(screen.getByTestId("workspaces-count")).toHaveTextContent("2");
+      });
+      expect(mockGetMe).toHaveBeenCalledTimes(2);
+
+      // Token-rotation MUST NOT be triggered — the whole point of
+      // refreshWorkspaces is to avoid touching Supabase's refresh token.
+      expect(mockRefreshSession).not.toHaveBeenCalled();
+    });
+
+    it("should swallow a /me failure without wiping the in-memory workspace list", async () => {
+      mockGetSession.mockResolvedValue({ data: { session: mockSession } });
+      mockGetMe
+        .mockResolvedValueOnce({
+          user: mockUser,
+          workspaces: [mockWorkspace],
+        })
+        // Simulate a transient failure on the refresh call.
+        .mockRejectedValueOnce(new Error("network blip"));
+
+      const user = userEvent.setup();
+      const consoleErrorSpy = vi
+        .spyOn(console, "error")
+        .mockImplementation(() => {});
+
+      try {
+        renderWithProvider();
+
+        await waitFor(() => {
+          expect(screen.getByTestId("workspaces-count")).toHaveTextContent("1");
+        });
+        expect(mockGetMe).toHaveBeenCalledTimes(1);
+
+        await act(async () => {
+          await user.click(screen.getByText("Refresh Workspaces"));
+        });
+
+        // Confirm refreshWorkspaces actually attempted the refresh (regression
+        // guard for the dedupe-latch bypass).
+        await waitFor(() => {
+          expect(mockGetMe).toHaveBeenCalledTimes(2);
+        });
+
+        // The refresh failed — but the consumer is NOT signed out and the
+        // existing workspace list is NOT wiped. (BUG-AUTH-2 invariant.)
+        expect(screen.getByTestId("authenticated")).toHaveTextContent(
+          "authenticated"
+        );
+        expect(screen.getByTestId("workspaces-count")).toHaveTextContent("1");
+      } finally {
+        consoleErrorSpy.mockRestore();
+      }
+    });
+
+    it("should bypass the per-token /me dedupe latch so a same-token caller still triggers a fresh fetch", async () => {
+      // Regression guard. Without `lastSuccessfulBootstrapTokenRef = null`
+      // inside refreshWorkspaces, the bootstrap dedupe would short-circuit
+      // and the second /me would never fire.
+      mockGetSession.mockResolvedValue({ data: { session: mockSession } });
+      mockGetMe.mockResolvedValue({
+        user: mockUser,
+        workspaces: [mockWorkspace],
+      });
+
+      const user = userEvent.setup();
+      renderWithProvider();
+
+      await waitFor(() => {
+        expect(mockGetMe).toHaveBeenCalledTimes(1);
+      });
+
+      // Trigger a duplicate Supabase auth event (SAME session, same token).
+      // The provider's dedupe latch is supposed to prevent a second /me here.
+      authStateChangeCallback?.("SIGNED_IN", mockSession);
+      await waitFor(() => {
+        // Still 1 — dedupe is working as designed.
+        expect(mockGetMe).toHaveBeenCalledTimes(1);
+      });
+
+      // refreshWorkspaces, however, MUST bust the latch.
+      await act(async () => {
+        await user.click(screen.getByText("Refresh Workspaces"));
+      });
+
+      await waitFor(() => {
+        expect(mockGetMe).toHaveBeenCalledTimes(2);
+      });
+      expect(mockRefreshSession).not.toHaveBeenCalled();
     });
   });
 

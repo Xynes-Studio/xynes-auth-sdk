@@ -37,6 +37,20 @@ interface AuthContextValue extends AuthState {
   redirectToLogin: (returnUrl?: string) => void;
   redirectToSignup: (returnUrl?: string) => void;
   refreshSession: () => Promise<void>;
+  /**
+   * BUG-AUTH-2 (2026-05-30): Re-fetch `/me` without going through Supabase
+   * refresh-token rotation. Used by callers that just mutated the
+   * server-side workspace set (e.g. just created or joined a workspace)
+   * and need the in-memory `workspaces` array to reflect the mutation
+   * before the next render — so a downstream `selectWorkspace(...)` can
+   * succeed without a hard reload.
+   *
+   * Posture: no-op when logged out; never throws; transient network
+   * failures are swallowed and leave the existing in-memory `workspaces`
+   * untouched (we deliberately do NOT route through `handleSessionChange`,
+   * which would wipe the list to `[]` on a transient failure).
+   */
+  refreshWorkspaces: () => Promise<void>;
   getAccessToken: () => Promise<string | null>;
 }
 
@@ -453,6 +467,72 @@ export function AuthProvider({
     }
   }, [supabase, handleSessionChange]);
 
+  /**
+   * BUG-AUTH-2 (2026-05-30): Re-fetch `/me` without going through Supabase
+   * refresh-token rotation. See the docblock on `AuthContextValue.refreshWorkspaces`
+   * for the contract. The implementation deliberately bypasses
+   * `handleSessionChange` so a transient `/me` failure cannot wipe an
+   * already-good workspaces list to `[]`.
+   */
+  const refreshWorkspaces = useCallback(async (): Promise<void> => {
+    if (!sessionRef.current?.access_token) {
+      return;
+    }
+
+    // Bust the per-token bootstrap dedupe latch so we actually hit /me.
+    lastSuccessfulBootstrapTokenRef.current = null;
+
+    try {
+      const { bootstrap, unauthorized } = await bootstrapUser();
+
+      // Session rotated mid-flight → another listener already handled it.
+      if (!sessionRef.current?.access_token) {
+        return;
+      }
+
+      if (bootstrap) {
+        const safeWorkspaces = Array.isArray(bootstrap.workspaces)
+          ? bootstrap.workspaces
+          : [];
+        const token = sessionRef.current.access_token;
+        const next: AuthState = {
+          user: bootstrap.user,
+          workspaces: safeWorkspaces,
+          isLoading: false,
+          isAuthenticated: true,
+          error: null,
+        };
+        lastSuccessfulBootstrapTokenRef.current = token;
+        stateRef.current = next;
+        setState(next);
+        return;
+      }
+
+      if (unauthorized) {
+        await supabase.auth.signOut();
+        const next: AuthState = {
+          user: null,
+          workspaces: [],
+          isLoading: false,
+          isAuthenticated: false,
+          error: null,
+        };
+        lastSuccessfulBootstrapTokenRef.current = null;
+        stateRef.current = next;
+        setState(next);
+        return;
+      }
+
+      // Transient / unknown bootstrap failure: deliberately leave state
+      // untouched so the consumer keeps the previous workspace list.
+    } catch (error) {
+      // Defensive: bootstrapUser already swallows its inner errors, but
+      // keep this catch so a future refactor cannot leak an unhandled
+      // rejection into a click handler.
+      console.error("Failed to refresh workspaces:", error);
+    }
+  }, [bootstrapUser, supabase]);
+
   const value = useMemo<AuthContextValue>(
     () => ({
       ...state,
@@ -463,6 +543,7 @@ export function AuthProvider({
       redirectToLogin,
       redirectToSignup,
       refreshSession,
+      refreshWorkspaces,
       getAccessToken,
     }),
     [
@@ -474,6 +555,7 @@ export function AuthProvider({
       redirectToLogin,
       redirectToSignup,
       refreshSession,
+      refreshWorkspaces,
       getAccessToken,
     ]
   );
