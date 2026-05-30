@@ -3,7 +3,11 @@
 import { useState, useEffect, useCallback, useMemo } from "react";
 import type { WorkspaceInvite, Workspace, AuthError } from "../types";
 import { AccountsClient } from "../api/accounts-client";
-import { normalizeAuthError, getErrorMessage } from "../utils/errors";
+import {
+  getErrorMessage,
+  isRefreshTokenError,
+  normalizeAuthError,
+} from "../utils/errors";
 import { useAuth } from "../providers/AuthProvider";
 
 /**
@@ -82,7 +86,17 @@ export function useInvite(
   }, [token, apiBaseUrl]);
 
   /**
-   * Accept the invite (requires authentication)
+   * Accept the invite (requires authentication).
+   *
+   * BUG-AUTH-4 (2026-05-30): if the underlying HTTP call throws a
+   * Supabase refresh-token side-effect (e.g. "Invalid Refresh Token:
+   * Refresh Token Not Found") that fires DURING but is unrelated to the
+   * accept POST, the join may have actually succeeded on the backend.
+   * Before surfacing the error, we re-list the user's workspaces and
+   * check whether the invite's target workspace is now present. If yes,
+   * we return that workspace silently (the join did succeed; the error
+   * was a transient auth-side-effect). Only if the recovery check
+   * confirms the join did NOT happen do we surface the original error.
    */
   const acceptInvite = useCallback(async (): Promise<Workspace | null> => {
     if (!token || !isAuthenticated) {
@@ -106,13 +120,51 @@ export function useInvite(
 
       return null;
     } catch (err) {
+      // BUG-AUTH-4: when the thrown error is a Supabase refresh-token
+      // side-effect, verify whether the join actually succeeded before
+      // surfacing the error. The invite token gives us the target
+      // workspace id, so we can match it against the freshly-loaded
+      // workspace list.
+      if (isRefreshTokenError(err) && invite?.workspaceId) {
+        try {
+          const workspaces = await accountsClient.getWorkspaces();
+          const matched = workspaces.find(
+            (workspace) => workspace.id === invite.workspaceId,
+          );
+          if (matched) {
+            // Join did succeed; the error was incidental — do NOT
+            // poison the UI with a generic "unexpected error".
+            return matched;
+          }
+        } catch (recoveryErr) {
+          // Recovery failed — fall through to surface the original
+          // error. We deliberately do not surface the recovery error
+          // because the original `err` is the one the caller asked
+          // about.
+          console.warn(
+            "[useInvite] Recovery getWorkspaces() failed:",
+            recoveryErr,
+          );
+        }
+
+        // Recovery confirmed the join did NOT happen. Surface a
+        // session-expired error rather than "unknown_error" so the user
+        // sees actionable copy.
+        const sessionError: AuthError = {
+          code: "session_expired",
+          message: getErrorMessage("session_expired"),
+        };
+        setError(sessionError);
+        return null;
+      }
+
       const authError = normalizeAuthError(err);
       setError(authError);
       return null;
     } finally {
       setIsAccepting(false);
     }
-  }, [token, isAuthenticated, accountsClient]);
+  }, [token, isAuthenticated, accountsClient, invite]);
 
   return {
     invite,

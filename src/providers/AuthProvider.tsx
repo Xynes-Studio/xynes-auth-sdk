@@ -23,7 +23,7 @@ import type {
   AuthResult,
 } from "../types";
 import { AccountsClient } from "../api/accounts-client";
-import { normalizeAuthError } from "../utils/errors";
+import { normalizeAuthError, isRefreshTokenError } from "../utils/errors";
 import { buildAuthRedirectUrl, isValidRedirectUrl } from "../utils/redirect";
 
 /**
@@ -121,8 +121,28 @@ export function AuthProvider({
     const inMemory = sessionRef.current?.access_token ?? null;
     if (inMemory) return inMemory;
 
-    const { data } = await supabase.auth.getSession();
-    return data.session?.access_token ?? null;
+    try {
+      const { data } = await supabase.auth.getSession();
+      return data.session?.access_token ?? null;
+    } catch (error) {
+      // BUG-AUTH-4 (2026-05-30): Supabase's `getSession()` can throw an
+      // "Invalid Refresh Token: Refresh Token Not Found" error when its
+      // internal auto-refresh fires against a session whose stored
+      // refresh token has been evicted, rotated, or never landed
+      // (notably after a fresh OAuth callback + cross-app navigation).
+      // Swallowing this here returns `null` to the caller, which will
+      // surface as a clean 401 from the downstream HTTP request rather
+      // than poisoning the caller's try/catch with an opaque
+      // Supabase-internal message.
+      if (isRefreshTokenError(error)) {
+        console.warn(
+          "[AuthProvider] getAccessToken: Supabase refresh-token failure; returning null",
+          error,
+        );
+        return null;
+      }
+      throw error;
+    }
   }, [supabase]);
 
   // Create accounts API client

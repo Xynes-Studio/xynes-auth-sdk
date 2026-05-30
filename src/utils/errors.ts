@@ -142,3 +142,58 @@ export function isRetryableError(errorCode: AuthErrorCode): boolean {
 export function getErrorMessage(errorCode: AuthErrorCode): string {
   return ERROR_MESSAGES[errorCode] || ERROR_MESSAGES.unknown_error;
 }
+
+/**
+ * Detects whether an error originated from Supabase's refresh-token /
+ * session-refresh internals (e.g. "Invalid Refresh Token: Refresh Token Not
+ * Found", "AuthSessionMissingError", "session_not_found"). Used by callers
+ * that need to treat these as recoverable side-effects rather than fatal
+ * failures of the in-flight request.
+ *
+ * BUG-AUTH-4 (2026-05-30): added so that `useInvite.acceptInvite` can
+ * distinguish a Supabase auto-refresh side-effect (which leaves the join
+ * successful on the backend) from a genuine accept failure, and so
+ * `getAccessToken` can fall back to `null` instead of poisoning a caller's
+ * try/catch chain.
+ *
+ * @param error - Any thrown value.
+ * @returns true if the error message/code matches a known refresh-token
+ *   failure surface from Supabase auth-js.
+ */
+export function isRefreshTokenError(error: unknown): boolean {
+  if (!error || typeof error !== "object") return false;
+  const maybe = error as {
+    message?: unknown;
+    code?: unknown;
+    name?: unknown;
+    status?: unknown;
+  };
+
+  const message =
+    typeof maybe.message === "string" ? maybe.message.toLowerCase() : "";
+  const code = typeof maybe.code === "string" ? maybe.code.toLowerCase() : "";
+  const name = typeof maybe.name === "string" ? maybe.name.toLowerCase() : "";
+
+  if (
+    code === "refresh_token_not_found" ||
+    code === "refresh_token_already_used" ||
+    code === "session_not_found"
+  ) {
+    return true;
+  }
+
+  if (name === "authsessionmissingerror") {
+    return true;
+  }
+
+  if (
+    message.includes("refresh token not found") ||
+    message.includes("invalid refresh token") ||
+    message.includes("refresh_token_not_found") ||
+    message.includes("auth session missing")
+  ) {
+    return true;
+  }
+
+  return false;
+}

@@ -3,6 +3,7 @@ import {
   normalizeAuthError,
   isRetryableError,
   getErrorMessage,
+  isRefreshTokenError,
 } from "./errors";
 import type { AuthErrorCode } from "../types";
 
@@ -113,6 +114,101 @@ describe("error utilities", () => {
       it(`should return correct message for ${code}`, () => {
         expect(getErrorMessage(code as AuthErrorCode)).toBe(expectedMessage);
       });
+    });
+  });
+
+  describe("isRefreshTokenError (BUG-AUTH-4)", () => {
+    it("should detect Supabase 'Invalid Refresh Token: Refresh Token Not Found' message", () => {
+      expect(
+        isRefreshTokenError({
+          message: "Invalid Refresh Token: Refresh Token Not Found",
+          name: "AuthApiError",
+        }),
+      ).toBe(true);
+    });
+
+    it("should detect the refresh_token_not_found Supabase code", () => {
+      expect(
+        isRefreshTokenError({
+          message: "Refresh token not found",
+          code: "refresh_token_not_found",
+        }),
+      ).toBe(true);
+    });
+
+    it("should detect refresh_token_already_used", () => {
+      expect(
+        isRefreshTokenError({
+          message: "Refresh token already used",
+          code: "refresh_token_already_used",
+        }),
+      ).toBe(true);
+    });
+
+    it("should detect AuthSessionMissingError name", () => {
+      expect(
+        isRefreshTokenError({
+          message: "Auth session missing!",
+          name: "AuthSessionMissingError",
+        }),
+      ).toBe(true);
+    });
+
+    it("should detect session_not_found code", () => {
+      expect(
+        isRefreshTokenError({
+          message: "Session not found",
+          code: "session_not_found",
+        }),
+      ).toBe(true);
+    });
+
+    it("should be case-insensitive on the message body", () => {
+      expect(
+        isRefreshTokenError({
+          message: "INVALID REFRESH TOKEN: REFRESH TOKEN NOT FOUND",
+        }),
+      ).toBe(true);
+    });
+
+    it("should NOT match generic auth errors (invalid credentials)", () => {
+      expect(
+        isRefreshTokenError({
+          message: "Invalid login credentials",
+          code: "invalid_credentials",
+        }),
+      ).toBe(false);
+    });
+
+    it("should NOT match network errors", () => {
+      expect(
+        isRefreshTokenError({
+          message: "Failed to fetch",
+        }),
+      ).toBe(false);
+    });
+
+    it("should NOT match invite-not-found errors", () => {
+      expect(
+        isRefreshTokenError({
+          statusCode: 404,
+          message: "Invite not found",
+          code: "invite_not_found",
+        }),
+      ).toBe(false);
+    });
+
+    it("should handle null / undefined / non-objects", () => {
+      expect(isRefreshTokenError(null)).toBe(false);
+      expect(isRefreshTokenError(undefined)).toBe(false);
+      expect(isRefreshTokenError("Invalid Refresh Token")).toBe(false);
+      expect(isRefreshTokenError(404)).toBe(false);
+    });
+
+    it("should handle objects missing message / code / name without throwing", () => {
+      expect(isRefreshTokenError({})).toBe(false);
+      expect(isRefreshTokenError({ message: 42 })).toBe(false);
+      expect(isRefreshTokenError({ code: 42 })).toBe(false);
     });
   });
 });
