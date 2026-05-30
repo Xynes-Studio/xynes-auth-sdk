@@ -130,7 +130,10 @@ export function AuthProvider({
     const status =
       typeof maybe.statusCode === "number" ? maybe.statusCode : undefined;
     if (status === 401 || status === 403) return true;
-    if (typeof maybe.code === "string" && maybe.code.toUpperCase() === "UNAUTHORIZED") {
+    if (
+      typeof maybe.code === "string" &&
+      maybe.code.toUpperCase() === "UNAUTHORIZED"
+    ) {
       return true;
     }
     return false;
@@ -144,7 +147,10 @@ export function AuthProvider({
     unauthorized: boolean;
   }> => {
     const token = sessionRef.current?.access_token ?? null;
-    if (bootstrapInFlightRef.current.promise && bootstrapInFlightRef.current.token === token) {
+    if (
+      bootstrapInFlightRef.current.promise &&
+      bootstrapInFlightRef.current.token === token
+    ) {
       return bootstrapInFlightRef.current.promise;
     }
 
@@ -266,7 +272,7 @@ export function AuthProvider({
         setState(next);
       }
     },
-    [bootstrapUser, isUnauthorizedError, supabase]
+    [bootstrapUser, isUnauthorizedError, supabase],
   );
 
   // Initialize auth state
@@ -331,7 +337,7 @@ export function AuthProvider({
         return { success: false, error: authError };
       }
     },
-    [supabase]
+    [supabase],
   );
 
   /**
@@ -358,7 +364,7 @@ export function AuthProvider({
         return { success: false, error: authError };
       }
     },
-    [supabase]
+    [supabase],
   );
 
   /**
@@ -379,7 +385,7 @@ export function AuthProvider({
         throw error;
       }
     },
-    [supabase]
+    [supabase],
   );
 
   /**
@@ -420,7 +426,7 @@ export function AuthProvider({
 
       return undefined;
     },
-    [config.crossApp?.redirects?.allowedDomains, config.allowedRedirectDomains]
+    [config.crossApp?.redirects?.allowedDomains, config.allowedRedirectDomains],
   );
 
   const redirectToLogin = useCallback(
@@ -431,11 +437,11 @@ export function AuthProvider({
       const url = buildAuthRedirectUrl(
         config.authAppUrl,
         "login",
-        safeRedirectUrl
+        safeRedirectUrl,
       );
       window.location.href = url;
     },
-    [config.authAppUrl, resolveSafeAuthRedirectTarget]
+    [config.authAppUrl, resolveSafeAuthRedirectTarget],
   );
 
   /**
@@ -450,11 +456,11 @@ export function AuthProvider({
       const url = buildAuthRedirectUrl(
         config.authAppUrl,
         "signup",
-        safeRedirectUrl
+        safeRedirectUrl,
       );
       window.location.href = url;
     },
-    [config.authAppUrl, resolveSafeAuthRedirectTarget]
+    [config.authAppUrl, resolveSafeAuthRedirectTarget],
   );
 
   /**
@@ -557,7 +563,7 @@ export function AuthProvider({
       refreshSession,
       refreshWorkspaces,
       getAccessToken,
-    ]
+    ],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

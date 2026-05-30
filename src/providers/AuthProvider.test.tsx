@@ -19,10 +19,7 @@ import type { AuthConfig } from "../types";
 // ─────────────────────────────────────────────────────────────────
 
 // Store for auth state change callbacks
-type AuthStateChangeCallback = (
-  event: string,
-  session: Session | null
-) => void;
+type AuthStateChangeCallback = (event: string, session: Session | null) => void;
 let authStateChangeCallback: AuthStateChangeCallback | null = null;
 
 // Mock session data
@@ -194,7 +191,7 @@ function renderWithProvider(config: AuthConfig = defaultConfig) {
   return render(
     <AuthProvider config={config}>
       <TestConsumer />
-    </AuthProvider>
+    </AuthProvider>,
   );
 }
 
@@ -231,7 +228,7 @@ describe("AuthProvider", () => {
   describe("Initial State", () => {
     it("should render with loading state initially", async () => {
       mockGetSession.mockImplementation(
-        () => new Promise(() => {}) // Never resolves
+        () => new Promise(() => {}), // Never resolves
       );
 
       renderWithProvider();
@@ -249,7 +246,7 @@ describe("AuthProvider", () => {
       });
 
       expect(screen.getByTestId("authenticated")).toHaveTextContent(
-        "unauthenticated"
+        "unauthenticated",
       );
       expect(screen.getByTestId("user")).toHaveTextContent("no-user");
     });
@@ -268,7 +265,7 @@ describe("AuthProvider", () => {
       });
 
       expect(screen.getByTestId("authenticated")).toHaveTextContent(
-        "authenticated"
+        "authenticated",
       );
       expect(screen.getByTestId("user")).toHaveTextContent("test@example.com");
       expect(screen.getByTestId("workspaces-count")).toHaveTextContent("1");
@@ -283,7 +280,7 @@ describe("AuthProvider", () => {
       render(
         <AuthProvider config={defaultConfig} initialSession={mockSession}>
           <TestConsumer />
-        </AuthProvider>
+        </AuthProvider>,
       );
 
       await waitFor(() => {
@@ -293,7 +290,7 @@ describe("AuthProvider", () => {
       // getSession should NOT be called when initialSession is provided
       expect(mockGetSession).not.toHaveBeenCalled();
       expect(screen.getByTestId("authenticated")).toHaveTextContent(
-        "authenticated"
+        "authenticated",
       );
     });
 
@@ -301,7 +298,7 @@ describe("AuthProvider", () => {
       render(
         <AuthProvider config={defaultConfig} initialSession={null}>
           <TestConsumer />
-        </AuthProvider>
+        </AuthProvider>,
       );
 
       await waitFor(() => {
@@ -309,7 +306,7 @@ describe("AuthProvider", () => {
       });
 
       expect(screen.getByTestId("authenticated")).toHaveTextContent(
-        "unauthenticated"
+        "unauthenticated",
       );
     });
   });
@@ -367,28 +364,48 @@ describe("AuthProvider", () => {
       mockGetSession.mockResolvedValue({ data: { session: sessionA } });
 
       const deferredA: {
-        promise: Promise<{ user: typeof mockUser; workspaces: typeof mockWorkspace[] }>;
-        resolve: (value: { user: typeof mockUser; workspaces: typeof mockWorkspace[] }) => void;
+        promise: Promise<{
+          user: typeof mockUser;
+          workspaces: (typeof mockWorkspace)[];
+        }>;
+        resolve: (value: {
+          user: typeof mockUser;
+          workspaces: (typeof mockWorkspace)[];
+        }) => void;
       } = (() => {
-        let resolve!: (value: { user: typeof mockUser; workspaces: typeof mockWorkspace[] }) => void;
-        const promise = new Promise<{ user: typeof mockUser; workspaces: typeof mockWorkspace[] }>(
-          (res) => {
-            resolve = res;
-          }
-        );
+        let resolve!: (value: {
+          user: typeof mockUser;
+          workspaces: (typeof mockWorkspace)[];
+        }) => void;
+        const promise = new Promise<{
+          user: typeof mockUser;
+          workspaces: (typeof mockWorkspace)[];
+        }>((res) => {
+          resolve = res;
+        });
         return { promise, resolve };
       })();
 
       const deferredB: {
-        promise: Promise<{ user: typeof mockUser; workspaces: typeof mockWorkspace[] }>;
-        resolve: (value: { user: typeof mockUser; workspaces: typeof mockWorkspace[] }) => void;
+        promise: Promise<{
+          user: typeof mockUser;
+          workspaces: (typeof mockWorkspace)[];
+        }>;
+        resolve: (value: {
+          user: typeof mockUser;
+          workspaces: (typeof mockWorkspace)[];
+        }) => void;
       } = (() => {
-        let resolve!: (value: { user: typeof mockUser; workspaces: typeof mockWorkspace[] }) => void;
-        const promise = new Promise<{ user: typeof mockUser; workspaces: typeof mockWorkspace[] }>(
-          (res) => {
-            resolve = res;
-          }
-        );
+        let resolve!: (value: {
+          user: typeof mockUser;
+          workspaces: (typeof mockWorkspace)[];
+        }) => void;
+        const promise = new Promise<{
+          user: typeof mockUser;
+          workspaces: (typeof mockWorkspace)[];
+        }>((res) => {
+          resolve = res;
+        });
         return { promise, resolve };
       })();
 
@@ -445,7 +462,7 @@ describe("AuthProvider", () => {
 
       // Should still be authenticated but no user data
       expect(screen.getByTestId("authenticated")).toHaveTextContent(
-        "authenticated"
+        "authenticated",
       );
       expect(screen.getByTestId("user")).toHaveTextContent("no-user");
     });
@@ -465,7 +482,7 @@ describe("AuthProvider", () => {
 
       expect(mockSignOut).toHaveBeenCalled();
       expect(screen.getByTestId("authenticated")).toHaveTextContent(
-        "unauthenticated"
+        "unauthenticated",
       );
       expect(screen.getByTestId("user")).toHaveTextContent("no-user");
     });
@@ -554,7 +571,10 @@ describe("AuthProvider", () => {
       mockGetSession.mockResolvedValue({ data: { session: null } });
       mockSignUp.mockResolvedValue({
         data: { user: null, session: null },
-        error: { message: "User already registered", code: "email_already_exists" },
+        error: {
+          message: "User already registered",
+          code: "email_already_exists",
+        },
       });
 
       const user = userEvent.setup();
@@ -700,7 +720,7 @@ describe("AuthProvider", () => {
         () => {
           expect(screen.getByTestId("error")).not.toHaveTextContent("no-error");
         },
-        { timeout: 1000 }
+        { timeout: 1000 },
       );
     });
   });
@@ -719,7 +739,7 @@ describe("AuthProvider", () => {
 
       await waitFor(() => {
         expect(screen.getByTestId("authenticated")).toHaveTextContent(
-          "authenticated"
+          "authenticated",
         );
       });
 
@@ -728,7 +748,7 @@ describe("AuthProvider", () => {
       await waitFor(() => {
         expect(mockSignOut).toHaveBeenCalled();
         expect(screen.getByTestId("authenticated")).toHaveTextContent(
-          "unauthenticated"
+          "unauthenticated",
         );
         expect(screen.getByTestId("user")).toHaveTextContent("no-user");
         expect(screen.getByTestId("workspaces-count")).toHaveTextContent("0");
@@ -808,7 +828,7 @@ describe("AuthProvider", () => {
       // Still no /me — refreshWorkspaces fails closed when logged out.
       expect(mockGetMe).not.toHaveBeenCalled();
       expect(screen.getByTestId("authenticated")).toHaveTextContent(
-        "unauthenticated"
+        "unauthenticated",
       );
     });
 
@@ -889,7 +909,7 @@ describe("AuthProvider", () => {
         // The refresh failed — but the consumer is NOT signed out and the
         // existing workspace list is NOT wiped. (BUG-AUTH-2 invariant.)
         expect(screen.getByTestId("authenticated")).toHaveTextContent(
-          "authenticated"
+          "authenticated",
         );
         expect(screen.getByTestId("workspaces-count")).toHaveTextContent("1");
       } finally {
@@ -945,7 +965,7 @@ describe("AuthProvider", () => {
       });
 
       expect(screen.getByTestId("authenticated")).toHaveTextContent(
-        "unauthenticated"
+        "unauthenticated",
       );
 
       // Simulate auth state change (user signs in)
@@ -960,7 +980,7 @@ describe("AuthProvider", () => {
 
       await waitFor(() => {
         expect(screen.getByTestId("authenticated")).toHaveTextContent(
-          "authenticated"
+          "authenticated",
         );
       });
     });
@@ -976,7 +996,7 @@ describe("AuthProvider", () => {
 
       await waitFor(() => {
         expect(screen.getByTestId("authenticated")).toHaveTextContent(
-          "authenticated"
+          "authenticated",
         );
       });
 
@@ -987,7 +1007,7 @@ describe("AuthProvider", () => {
 
       await waitFor(() => {
         expect(screen.getByTestId("authenticated")).toHaveTextContent(
-          "unauthenticated"
+          "unauthenticated",
         );
       });
     });
@@ -1003,7 +1023,7 @@ describe("AuthProvider", () => {
 
       await waitFor(() => {
         expect(screen.getByTestId("authenticated")).toHaveTextContent(
-          "authenticated"
+          "authenticated",
         );
       });
 
@@ -1020,7 +1040,7 @@ describe("AuthProvider", () => {
       // Should remain authenticated
       await waitFor(() => {
         expect(screen.getByTestId("authenticated")).toHaveTextContent(
-          "authenticated"
+          "authenticated",
         );
       });
     });
@@ -1102,7 +1122,7 @@ describe("AuthProvider", () => {
       render(
         <AuthProvider config={configWithAllowedDomains}>
           <TestConsumer />
-        </AuthProvider>
+        </AuthProvider>,
       );
 
       await waitFor(() => {
@@ -1130,7 +1150,7 @@ describe("AuthProvider", () => {
       render(
         <AuthProvider config={defaultConfig}>
           <TestConsumerWithoutReturnUrl />
-        </AuthProvider>
+        </AuthProvider>,
       );
 
       await waitFor(() => {
@@ -1184,7 +1204,7 @@ describe("AuthProvider", () => {
       render(
         <AuthProvider config={configWithCanonicalCrossAppAllowlist}>
           <TestConsumerWithoutReturnUrl />
-        </AuthProvider>
+        </AuthProvider>,
       );
 
       await waitFor(() => {
@@ -1195,7 +1215,7 @@ describe("AuthProvider", () => {
 
       expect(window.location.href).toContain("auth.test.com/login");
       expect(window.location.href).toContain(
-        "redirect=https%3A%2F%2Fapp.test.com%2Fprotected%3Ftab%3Ddrafts"
+        "redirect=https%3A%2F%2Fapp.test.com%2Fprotected%3Ftab%3Ddrafts",
       );
     });
 
@@ -1220,7 +1240,7 @@ describe("AuthProvider", () => {
       render(
         <AuthProvider config={configWithRestrictedDomains}>
           <TestConsumerWithoutReturnUrl />
-        </AuthProvider>
+        </AuthProvider>,
       );
 
       await waitFor(() => {
