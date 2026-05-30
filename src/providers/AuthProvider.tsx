@@ -37,6 +37,29 @@ interface AuthContextValue extends AuthState {
   redirectToLogin: (returnUrl?: string) => void;
   redirectToSignup: (returnUrl?: string) => void;
   refreshSession: () => Promise<void>;
+  /**
+   * BUG-AUTH-2 (2026-05-30): Re-fetch `/me` without going through Supabase
+   * refresh-token rotation. Used by callers that just mutated the
+   * server-side workspace set (e.g. just created or joined a workspace)
+   * and need the in-memory `workspaces` array to reflect the mutation
+   * before the next render — so a downstream `selectWorkspace(...)` can
+   * succeed without a hard reload.
+   *
+   * Posture:
+   * - No-op when logged out.
+   * - Never throws; a transient network failure is swallowed and leaves
+   *   the existing in-memory `workspaces` untouched. (We deliberately do
+   *   NOT route through `handleSessionChange`, which would wipe the list
+   *   to `[]` on a transient failure.)
+   * - On 401/403 from `/me`, the user is signed out (canonical signed-out
+   *   state).
+   * - Cross-user safe: if the Supabase session rotates mid-flight to a
+   *   different non-null token (sign-out + sign-in as another user, or a
+   *   refresh that swapped the access token), the in-flight `/me` payload
+   *   is discarded — it belongs to the OLD token, not the current one.
+   * - Does NOT rotate the Supabase refresh token (that's `refreshSession`).
+   */
+  refreshWorkspaces: () => Promise<void>;
   getAccessToken: () => Promise<string | null>;
 }
 
@@ -116,7 +139,10 @@ export function AuthProvider({
     const status =
       typeof maybe.statusCode === "number" ? maybe.statusCode : undefined;
     if (status === 401 || status === 403) return true;
-    if (typeof maybe.code === "string" && maybe.code.toUpperCase() === "UNAUTHORIZED") {
+    if (
+      typeof maybe.code === "string" &&
+      maybe.code.toUpperCase() === "UNAUTHORIZED"
+    ) {
       return true;
     }
     return false;
@@ -130,7 +156,10 @@ export function AuthProvider({
     unauthorized: boolean;
   }> => {
     const token = sessionRef.current?.access_token ?? null;
-    if (bootstrapInFlightRef.current.promise && bootstrapInFlightRef.current.token === token) {
+    if (
+      bootstrapInFlightRef.current.promise &&
+      bootstrapInFlightRef.current.token === token
+    ) {
       return bootstrapInFlightRef.current.promise;
     }
 
@@ -252,7 +281,7 @@ export function AuthProvider({
         setState(next);
       }
     },
-    [bootstrapUser, isUnauthorizedError, supabase]
+    [bootstrapUser, isUnauthorizedError, supabase],
   );
 
   // Initialize auth state
@@ -317,7 +346,7 @@ export function AuthProvider({
         return { success: false, error: authError };
       }
     },
-    [supabase]
+    [supabase],
   );
 
   /**
@@ -344,7 +373,7 @@ export function AuthProvider({
         return { success: false, error: authError };
       }
     },
-    [supabase]
+    [supabase],
   );
 
   /**
@@ -365,7 +394,7 @@ export function AuthProvider({
         throw error;
       }
     },
-    [supabase]
+    [supabase],
   );
 
   /**
@@ -406,7 +435,7 @@ export function AuthProvider({
 
       return undefined;
     },
-    [config.crossApp?.redirects?.allowedDomains, config.allowedRedirectDomains]
+    [config.crossApp?.redirects?.allowedDomains, config.allowedRedirectDomains],
   );
 
   const redirectToLogin = useCallback(
@@ -417,11 +446,11 @@ export function AuthProvider({
       const url = buildAuthRedirectUrl(
         config.authAppUrl,
         "login",
-        safeRedirectUrl
+        safeRedirectUrl,
       );
       window.location.href = url;
     },
-    [config.authAppUrl, resolveSafeAuthRedirectTarget]
+    [config.authAppUrl, resolveSafeAuthRedirectTarget],
   );
 
   /**
@@ -436,11 +465,11 @@ export function AuthProvider({
       const url = buildAuthRedirectUrl(
         config.authAppUrl,
         "signup",
-        safeRedirectUrl
+        safeRedirectUrl,
       );
       window.location.href = url;
     },
-    [config.authAppUrl, resolveSafeAuthRedirectTarget]
+    [config.authAppUrl, resolveSafeAuthRedirectTarget],
   );
 
   /**
@@ -453,6 +482,95 @@ export function AuthProvider({
     }
   }, [supabase, handleSessionChange]);
 
+  /**
+   * BUG-AUTH-2 (2026-05-30): Re-fetch `/me` without going through Supabase
+   * refresh-token rotation. Used by callers that just mutated the
+   * server-side workspace set (e.g. just created or joined a workspace)
+   * and need the in-memory `workspaces` array to reflect the mutation
+   * before the next render — so a downstream `selectWorkspace(...)` can
+   * succeed without a hard reload.
+   *
+   * Posture:
+   * - No-op when logged out.
+   * - Never throws; a transient network failure is swallowed and leaves
+   *   the existing in-memory `workspaces` untouched. (We deliberately do
+   *   NOT route through `handleSessionChange`, which would wipe the list
+   *   to `[]` on a transient failure.)
+   * - On 401/403 from `/me`, the user is signed out (canonical signed-out
+   *   state).
+   * - Cross-user safe: if the Supabase session rotates mid-flight to a
+   *   different non-null token (sign-out + sign-in as another user, or a
+   *   refresh that swapped the access token), the in-flight `/me` payload
+   *   is discarded — it belongs to the OLD token, not the current one.
+   * - Does NOT rotate the Supabase refresh token (that's `refreshSession`).
+   */
+  const refreshWorkspaces = useCallback(async (): Promise<void> => {
+    const tokenAtStart = sessionRef.current?.access_token ?? null;
+    if (!tokenAtStart) {
+      return;
+    }
+
+    // Bust the per-token bootstrap dedupe latch so we actually hit /me.
+    lastSuccessfulBootstrapTokenRef.current = null;
+
+    try {
+      const { bootstrap, unauthorized } = await bootstrapUser();
+
+      // Session rotated mid-flight — either to a different non-null token
+      // (sign-out + sign-in as another user, or a refresh rotation) or to
+      // null (signed out). In either case, the `/me` payload we just got
+      // back belongs to `tokenAtStart`, NOT to whatever the current
+      // session is. Writing it into state would surface the wrong user's
+      // workspaces under the new session. Mirror the same guard
+      // `handleSessionChange` uses (see the `currentToken !== token`
+      // check above).
+      const currentToken = sessionRef.current?.access_token ?? null;
+      if (currentToken !== tokenAtStart) {
+        return;
+      }
+
+      if (bootstrap) {
+        const safeWorkspaces = Array.isArray(bootstrap.workspaces)
+          ? bootstrap.workspaces
+          : [];
+        const next: AuthState = {
+          user: bootstrap.user,
+          workspaces: safeWorkspaces,
+          isLoading: false,
+          isAuthenticated: true,
+          error: null,
+        };
+        lastSuccessfulBootstrapTokenRef.current = tokenAtStart;
+        stateRef.current = next;
+        setState(next);
+        return;
+      }
+
+      if (unauthorized) {
+        await supabase.auth.signOut();
+        const next: AuthState = {
+          user: null,
+          workspaces: [],
+          isLoading: false,
+          isAuthenticated: false,
+          error: null,
+        };
+        lastSuccessfulBootstrapTokenRef.current = null;
+        stateRef.current = next;
+        setState(next);
+        return;
+      }
+
+      // Transient / unknown bootstrap failure: deliberately leave state
+      // untouched so the consumer keeps the previous workspace list.
+    } catch (error) {
+      // Defensive: bootstrapUser already swallows its inner errors, but
+      // keep this catch so a future refactor cannot leak an unhandled
+      // rejection into a click handler.
+      console.error("Failed to refresh workspaces:", error);
+    }
+  }, [bootstrapUser, supabase]);
+
   const value = useMemo<AuthContextValue>(
     () => ({
       ...state,
@@ -463,6 +581,7 @@ export function AuthProvider({
       redirectToLogin,
       redirectToSignup,
       refreshSession,
+      refreshWorkspaces,
       getAccessToken,
     }),
     [
@@ -474,8 +593,9 @@ export function AuthProvider({
       redirectToLogin,
       redirectToSignup,
       refreshSession,
+      refreshWorkspaces,
       getAccessToken,
-    ]
+    ],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

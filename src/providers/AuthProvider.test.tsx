@@ -19,10 +19,7 @@ import type { AuthConfig } from "../types";
 // ─────────────────────────────────────────────────────────────────
 
 // Store for auth state change callbacks
-type AuthStateChangeCallback = (
-  event: string,
-  session: Session | null
-) => void;
+type AuthStateChangeCallback = (event: string, session: Session | null) => void;
 let authStateChangeCallback: AuthStateChangeCallback | null = null;
 
 // Mock session data
@@ -138,6 +135,7 @@ function TestConsumer() {
     signInWithPassword,
     signInWithOAuth,
     refreshSession,
+    refreshWorkspaces,
     redirectToLogin,
     redirectToSignup,
   } = useAuth();
@@ -175,6 +173,7 @@ function TestConsumer() {
       <button onClick={handleOAuth}>OAuth</button>
       <button onClick={signOut}>Sign Out</button>
       <button onClick={refreshSession}>Refresh</button>
+      <button onClick={refreshWorkspaces}>Refresh Workspaces</button>
       <button onClick={() => redirectToLogin("/dashboard")}>
         Redirect Login
       </button>
@@ -192,7 +191,7 @@ function renderWithProvider(config: AuthConfig = defaultConfig) {
   return render(
     <AuthProvider config={config}>
       <TestConsumer />
-    </AuthProvider>
+    </AuthProvider>,
   );
 }
 
@@ -229,7 +228,7 @@ describe("AuthProvider", () => {
   describe("Initial State", () => {
     it("should render with loading state initially", async () => {
       mockGetSession.mockImplementation(
-        () => new Promise(() => {}) // Never resolves
+        () => new Promise(() => {}), // Never resolves
       );
 
       renderWithProvider();
@@ -247,7 +246,7 @@ describe("AuthProvider", () => {
       });
 
       expect(screen.getByTestId("authenticated")).toHaveTextContent(
-        "unauthenticated"
+        "unauthenticated",
       );
       expect(screen.getByTestId("user")).toHaveTextContent("no-user");
     });
@@ -266,7 +265,7 @@ describe("AuthProvider", () => {
       });
 
       expect(screen.getByTestId("authenticated")).toHaveTextContent(
-        "authenticated"
+        "authenticated",
       );
       expect(screen.getByTestId("user")).toHaveTextContent("test@example.com");
       expect(screen.getByTestId("workspaces-count")).toHaveTextContent("1");
@@ -281,7 +280,7 @@ describe("AuthProvider", () => {
       render(
         <AuthProvider config={defaultConfig} initialSession={mockSession}>
           <TestConsumer />
-        </AuthProvider>
+        </AuthProvider>,
       );
 
       await waitFor(() => {
@@ -291,7 +290,7 @@ describe("AuthProvider", () => {
       // getSession should NOT be called when initialSession is provided
       expect(mockGetSession).not.toHaveBeenCalled();
       expect(screen.getByTestId("authenticated")).toHaveTextContent(
-        "authenticated"
+        "authenticated",
       );
     });
 
@@ -299,7 +298,7 @@ describe("AuthProvider", () => {
       render(
         <AuthProvider config={defaultConfig} initialSession={null}>
           <TestConsumer />
-        </AuthProvider>
+        </AuthProvider>,
       );
 
       await waitFor(() => {
@@ -307,7 +306,7 @@ describe("AuthProvider", () => {
       });
 
       expect(screen.getByTestId("authenticated")).toHaveTextContent(
-        "unauthenticated"
+        "unauthenticated",
       );
     });
   });
@@ -365,28 +364,48 @@ describe("AuthProvider", () => {
       mockGetSession.mockResolvedValue({ data: { session: sessionA } });
 
       const deferredA: {
-        promise: Promise<{ user: typeof mockUser; workspaces: typeof mockWorkspace[] }>;
-        resolve: (value: { user: typeof mockUser; workspaces: typeof mockWorkspace[] }) => void;
+        promise: Promise<{
+          user: typeof mockUser;
+          workspaces: (typeof mockWorkspace)[];
+        }>;
+        resolve: (value: {
+          user: typeof mockUser;
+          workspaces: (typeof mockWorkspace)[];
+        }) => void;
       } = (() => {
-        let resolve!: (value: { user: typeof mockUser; workspaces: typeof mockWorkspace[] }) => void;
-        const promise = new Promise<{ user: typeof mockUser; workspaces: typeof mockWorkspace[] }>(
-          (res) => {
-            resolve = res;
-          }
-        );
+        let resolve!: (value: {
+          user: typeof mockUser;
+          workspaces: (typeof mockWorkspace)[];
+        }) => void;
+        const promise = new Promise<{
+          user: typeof mockUser;
+          workspaces: (typeof mockWorkspace)[];
+        }>((res) => {
+          resolve = res;
+        });
         return { promise, resolve };
       })();
 
       const deferredB: {
-        promise: Promise<{ user: typeof mockUser; workspaces: typeof mockWorkspace[] }>;
-        resolve: (value: { user: typeof mockUser; workspaces: typeof mockWorkspace[] }) => void;
+        promise: Promise<{
+          user: typeof mockUser;
+          workspaces: (typeof mockWorkspace)[];
+        }>;
+        resolve: (value: {
+          user: typeof mockUser;
+          workspaces: (typeof mockWorkspace)[];
+        }) => void;
       } = (() => {
-        let resolve!: (value: { user: typeof mockUser; workspaces: typeof mockWorkspace[] }) => void;
-        const promise = new Promise<{ user: typeof mockUser; workspaces: typeof mockWorkspace[] }>(
-          (res) => {
-            resolve = res;
-          }
-        );
+        let resolve!: (value: {
+          user: typeof mockUser;
+          workspaces: (typeof mockWorkspace)[];
+        }) => void;
+        const promise = new Promise<{
+          user: typeof mockUser;
+          workspaces: (typeof mockWorkspace)[];
+        }>((res) => {
+          resolve = res;
+        });
         return { promise, resolve };
       })();
 
@@ -443,7 +462,7 @@ describe("AuthProvider", () => {
 
       // Should still be authenticated but no user data
       expect(screen.getByTestId("authenticated")).toHaveTextContent(
-        "authenticated"
+        "authenticated",
       );
       expect(screen.getByTestId("user")).toHaveTextContent("no-user");
     });
@@ -463,7 +482,7 @@ describe("AuthProvider", () => {
 
       expect(mockSignOut).toHaveBeenCalled();
       expect(screen.getByTestId("authenticated")).toHaveTextContent(
-        "unauthenticated"
+        "unauthenticated",
       );
       expect(screen.getByTestId("user")).toHaveTextContent("no-user");
     });
@@ -552,7 +571,10 @@ describe("AuthProvider", () => {
       mockGetSession.mockResolvedValue({ data: { session: null } });
       mockSignUp.mockResolvedValue({
         data: { user: null, session: null },
-        error: { message: "User already registered", code: "email_already_exists" },
+        error: {
+          message: "User already registered",
+          code: "email_already_exists",
+        },
       });
 
       const user = userEvent.setup();
@@ -698,7 +720,7 @@ describe("AuthProvider", () => {
         () => {
           expect(screen.getByTestId("error")).not.toHaveTextContent("no-error");
         },
-        { timeout: 1000 }
+        { timeout: 1000 },
       );
     });
   });
@@ -717,7 +739,7 @@ describe("AuthProvider", () => {
 
       await waitFor(() => {
         expect(screen.getByTestId("authenticated")).toHaveTextContent(
-          "authenticated"
+          "authenticated",
         );
       });
 
@@ -726,7 +748,7 @@ describe("AuthProvider", () => {
       await waitFor(() => {
         expect(mockSignOut).toHaveBeenCalled();
         expect(screen.getByTestId("authenticated")).toHaveTextContent(
-          "unauthenticated"
+          "unauthenticated",
         );
         expect(screen.getByTestId("user")).toHaveTextContent("no-user");
         expect(screen.getByTestId("workspaces-count")).toHaveTextContent("0");
@@ -784,6 +806,260 @@ describe("AuthProvider", () => {
     });
   });
 
+  // ─────────────────────────────────────────────────────────────────
+  // BUG-AUTH-2 (2026-05-30): refreshWorkspaces
+  // ─────────────────────────────────────────────────────────────────
+  describe("Refresh Workspaces (BUG-AUTH-2)", () => {
+    it("should be a no-op when there is no active session", async () => {
+      mockGetSession.mockResolvedValue({ data: { session: null } });
+
+      const user = userEvent.setup();
+      renderWithProvider();
+
+      await waitFor(() => {
+        expect(screen.getByTestId("loading")).toHaveTextContent("loaded");
+      });
+
+      // No /me at all yet because there was no session.
+      expect(mockGetMe).not.toHaveBeenCalled();
+
+      await user.click(screen.getByText("Refresh Workspaces"));
+
+      // Still no /me — refreshWorkspaces fails closed when logged out.
+      expect(mockGetMe).not.toHaveBeenCalled();
+      expect(screen.getByTestId("authenticated")).toHaveTextContent(
+        "unauthenticated",
+      );
+    });
+
+    it("should re-fetch /me with the same session and surface a newly-created workspace without rotating tokens", async () => {
+      mockGetSession.mockResolvedValue({ data: { session: mockSession } });
+      // First /me (bootstrap on initial render): 1 workspace.
+      // Second /me (refresh after a workspace is created): 2 workspaces.
+      mockGetMe
+        .mockResolvedValueOnce({
+          user: mockUser,
+          workspaces: [mockWorkspace],
+        })
+        .mockResolvedValueOnce({
+          user: mockUser,
+          workspaces: [
+            mockWorkspace,
+            { ...mockWorkspace, id: "ws-new", slug: "new", name: "New" },
+          ],
+        });
+
+      const user = userEvent.setup();
+      renderWithProvider();
+
+      await waitFor(() => {
+        expect(screen.getByTestId("workspaces-count")).toHaveTextContent("1");
+      });
+      expect(mockGetMe).toHaveBeenCalledTimes(1);
+
+      await act(async () => {
+        await user.click(screen.getByText("Refresh Workspaces"));
+      });
+
+      // The new workspace must appear without forcing a token refresh
+      // and without forcing the consumer to reload.
+      await waitFor(() => {
+        expect(screen.getByTestId("workspaces-count")).toHaveTextContent("2");
+      });
+      expect(mockGetMe).toHaveBeenCalledTimes(2);
+
+      // Token-rotation MUST NOT be triggered — the whole point of
+      // refreshWorkspaces is to avoid touching Supabase's refresh token.
+      expect(mockRefreshSession).not.toHaveBeenCalled();
+    });
+
+    it("should swallow a /me failure without wiping the in-memory workspace list", async () => {
+      mockGetSession.mockResolvedValue({ data: { session: mockSession } });
+      mockGetMe
+        .mockResolvedValueOnce({
+          user: mockUser,
+          workspaces: [mockWorkspace],
+        })
+        // Simulate a transient failure on the refresh call.
+        .mockRejectedValueOnce(new Error("network blip"));
+
+      const user = userEvent.setup();
+      const consoleErrorSpy = vi
+        .spyOn(console, "error")
+        .mockImplementation(() => {});
+
+      try {
+        renderWithProvider();
+
+        await waitFor(() => {
+          expect(screen.getByTestId("workspaces-count")).toHaveTextContent("1");
+        });
+        expect(mockGetMe).toHaveBeenCalledTimes(1);
+
+        await act(async () => {
+          await user.click(screen.getByText("Refresh Workspaces"));
+        });
+
+        // Confirm refreshWorkspaces actually attempted the refresh (regression
+        // guard for the dedupe-latch bypass).
+        await waitFor(() => {
+          expect(mockGetMe).toHaveBeenCalledTimes(2);
+        });
+
+        // The refresh failed — but the consumer is NOT signed out and the
+        // existing workspace list is NOT wiped. (BUG-AUTH-2 invariant.)
+        expect(screen.getByTestId("authenticated")).toHaveTextContent(
+          "authenticated",
+        );
+        expect(screen.getByTestId("workspaces-count")).toHaveTextContent("1");
+      } finally {
+        consoleErrorSpy.mockRestore();
+      }
+    });
+
+    it("should bypass the per-token /me dedupe latch so a same-token caller still triggers a fresh fetch", async () => {
+      // Regression guard. Without `lastSuccessfulBootstrapTokenRef = null`
+      // inside refreshWorkspaces, the bootstrap dedupe would short-circuit
+      // and the second /me would never fire.
+      mockGetSession.mockResolvedValue({ data: { session: mockSession } });
+      mockGetMe.mockResolvedValue({
+        user: mockUser,
+        workspaces: [mockWorkspace],
+      });
+
+      const user = userEvent.setup();
+      renderWithProvider();
+
+      await waitFor(() => {
+        expect(mockGetMe).toHaveBeenCalledTimes(1);
+      });
+
+      // Trigger a duplicate Supabase auth event (SAME session, same token).
+      // The provider's dedupe latch is supposed to prevent a second /me here.
+      authStateChangeCallback?.("SIGNED_IN", mockSession);
+      await waitFor(() => {
+        // Still 1 — dedupe is working as designed.
+        expect(mockGetMe).toHaveBeenCalledTimes(1);
+      });
+
+      // refreshWorkspaces, however, MUST bust the latch.
+      await act(async () => {
+        await user.click(screen.getByText("Refresh Workspaces"));
+      });
+
+      await waitFor(() => {
+        expect(mockGetMe).toHaveBeenCalledTimes(2);
+      });
+      expect(mockRefreshSession).not.toHaveBeenCalled();
+    });
+
+    it("should discard an in-flight /me payload when the session rotates to a different user mid-flight (cross-user safety)", async () => {
+      // Codex P1 regression guard (PR #16). If `refreshWorkspaces` is in
+      // flight while the Supabase session changes to a different non-null
+      // token (e.g. sign-out + sign-in as another user, or a token
+      // rotation that fires `handleSessionChange`), the in-flight `/me`
+      // response belongs to the OLD token and MUST NOT be written into
+      // state under the NEW session. Without the captured-token guard,
+      // the consumer would briefly see user-A's workspaces under user-B's
+      // authenticated session — a cross-user data bleed.
+      const sessionA: Session = {
+        ...mockSession,
+        access_token: "token-a",
+        user: { ...mockSession.user, id: "user-a", email: "a@test.com" },
+      };
+      const sessionB: Session = {
+        ...mockSession,
+        access_token: "token-b",
+        user: { ...mockSession.user, id: "user-b", email: "b@test.com" },
+      };
+      const userA = {
+        ...mockUser,
+        id: "user-a",
+        email: "a@test.com",
+      };
+      const workspaceA = {
+        ...mockWorkspace,
+        id: "ws-a",
+        slug: "user-a-ws",
+        name: "User A workspace",
+      };
+      const userB = {
+        ...mockUser,
+        id: "user-b",
+        email: "b@test.com",
+      };
+      const workspaceB = {
+        ...mockWorkspace,
+        id: "ws-b",
+        slug: "user-b-ws",
+        name: "User B workspace",
+      };
+
+      mockGetSession.mockResolvedValue({ data: { session: sessionA } });
+
+      // Held /me for the refresh call. Resolved after the rotation lands.
+      let resolveRefreshMe!: (value: {
+        user: typeof userA;
+        workspaces: (typeof workspaceA)[];
+      }) => void;
+      const refreshMePromise = new Promise<{
+        user: typeof userA;
+        workspaces: (typeof workspaceA)[];
+      }>((res) => {
+        resolveRefreshMe = res;
+      });
+
+      mockGetMe
+        // 1. initial bootstrap for user A
+        .mockResolvedValueOnce({ user: userA, workspaces: [workspaceA] })
+        // 2. refreshWorkspaces /me for user A — HELD
+        .mockReturnValueOnce(refreshMePromise)
+        // 3. handleSessionChange bootstrap after rotation to user B
+        .mockResolvedValueOnce({ user: userB, workspaces: [workspaceB] });
+
+      const userEvt = userEvent.setup();
+      renderWithProvider();
+
+      await waitFor(() => {
+        expect(screen.getByTestId("user")).toHaveTextContent("a@test.com");
+      });
+      expect(mockGetMe).toHaveBeenCalledTimes(1);
+
+      // Kick off refreshWorkspaces — its /me call is held in the queue.
+      await act(async () => {
+        await userEvt.click(screen.getByText("Refresh Workspaces"));
+      });
+
+      // While the refresh is in flight, Supabase rotates the session to
+      // user B (different non-null access token). handleSessionChange
+      // fires its own bootstrap for user B.
+      await act(async () => {
+        authStateChangeCallback?.("SIGNED_IN", sessionB);
+      });
+
+      await waitFor(() => {
+        expect(screen.getByTestId("user")).toHaveTextContent("b@test.com");
+      });
+      expect(screen.getByTestId("workspaces-count")).toHaveTextContent("1");
+
+      // Now resolve the held refresh /me for user A. The cross-token
+      // guard MUST discard this payload — user A's workspaces must NOT
+      // surface under user B's authenticated session.
+      await act(async () => {
+        resolveRefreshMe({ user: userA, workspaces: [workspaceA] });
+        await refreshMePromise;
+      });
+
+      // Settle.
+      await Promise.resolve();
+
+      // Final state: still user B. No cross-user bleed.
+      expect(screen.getByTestId("user")).toHaveTextContent("b@test.com");
+      expect(screen.getByTestId("workspaces-count")).toHaveTextContent("1");
+      expect(mockRefreshSession).not.toHaveBeenCalled();
+    });
+  });
+
   describe("Auth State Change Listener", () => {
     it("should update state when auth state changes", async () => {
       mockGetSession.mockResolvedValue({ data: { session: null } });
@@ -795,7 +1071,7 @@ describe("AuthProvider", () => {
       });
 
       expect(screen.getByTestId("authenticated")).toHaveTextContent(
-        "unauthenticated"
+        "unauthenticated",
       );
 
       // Simulate auth state change (user signs in)
@@ -810,7 +1086,7 @@ describe("AuthProvider", () => {
 
       await waitFor(() => {
         expect(screen.getByTestId("authenticated")).toHaveTextContent(
-          "authenticated"
+          "authenticated",
         );
       });
     });
@@ -826,7 +1102,7 @@ describe("AuthProvider", () => {
 
       await waitFor(() => {
         expect(screen.getByTestId("authenticated")).toHaveTextContent(
-          "authenticated"
+          "authenticated",
         );
       });
 
@@ -837,7 +1113,7 @@ describe("AuthProvider", () => {
 
       await waitFor(() => {
         expect(screen.getByTestId("authenticated")).toHaveTextContent(
-          "unauthenticated"
+          "unauthenticated",
         );
       });
     });
@@ -853,7 +1129,7 @@ describe("AuthProvider", () => {
 
       await waitFor(() => {
         expect(screen.getByTestId("authenticated")).toHaveTextContent(
-          "authenticated"
+          "authenticated",
         );
       });
 
@@ -870,7 +1146,7 @@ describe("AuthProvider", () => {
       // Should remain authenticated
       await waitFor(() => {
         expect(screen.getByTestId("authenticated")).toHaveTextContent(
-          "authenticated"
+          "authenticated",
         );
       });
     });
@@ -952,7 +1228,7 @@ describe("AuthProvider", () => {
       render(
         <AuthProvider config={configWithAllowedDomains}>
           <TestConsumer />
-        </AuthProvider>
+        </AuthProvider>,
       );
 
       await waitFor(() => {
@@ -980,7 +1256,7 @@ describe("AuthProvider", () => {
       render(
         <AuthProvider config={defaultConfig}>
           <TestConsumerWithoutReturnUrl />
-        </AuthProvider>
+        </AuthProvider>,
       );
 
       await waitFor(() => {
@@ -1034,7 +1310,7 @@ describe("AuthProvider", () => {
       render(
         <AuthProvider config={configWithCanonicalCrossAppAllowlist}>
           <TestConsumerWithoutReturnUrl />
-        </AuthProvider>
+        </AuthProvider>,
       );
 
       await waitFor(() => {
@@ -1045,7 +1321,7 @@ describe("AuthProvider", () => {
 
       expect(window.location.href).toContain("auth.test.com/login");
       expect(window.location.href).toContain(
-        "redirect=https%3A%2F%2Fapp.test.com%2Fprotected%3Ftab%3Ddrafts"
+        "redirect=https%3A%2F%2Fapp.test.com%2Fprotected%3Ftab%3Ddrafts",
       );
     });
 
@@ -1070,7 +1346,7 @@ describe("AuthProvider", () => {
       render(
         <AuthProvider config={configWithRestrictedDomains}>
           <TestConsumerWithoutReturnUrl />
-        </AuthProvider>
+        </AuthProvider>,
       );
 
       await waitFor(() => {
