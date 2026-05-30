@@ -288,6 +288,159 @@ describe("FeatureFlagsProvider", () => {
       }),
     );
   });
+
+  // BUG-CMS-5: workspace id is threaded into the gateway request so PostHog
+  // evaluates per-workspace flag rollouts correctly. Without this, the
+  // CMS Console's `cms_editor_storage_uploads` flag could not target a
+  // single workspace from PostHog admin.
+  describe("workspaceId (BUG-CMS-5)", () => {
+    it("sends X-XS-Workspace-Id header when workspaceId is provided", async () => {
+      (global.fetch as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
+        ok: true,
+        json: () => Promise.resolve(mockFlagsResponse),
+      });
+
+      render(
+        <FeatureFlagsProvider
+          apiBaseUrl="http://localhost:4100"
+          workspaceId="ws-123"
+        >
+          <TestConsumer />
+        </FeatureFlagsProvider>,
+      );
+
+      await waitFor(() => {
+        expect(screen.getByTestId("loading").textContent).toBe("false");
+      });
+
+      expect(global.fetch).toHaveBeenCalledWith(
+        "http://localhost:4100/flags",
+        expect.objectContaining({
+          headers: expect.objectContaining({
+            "X-XS-Workspace-Id": "ws-123",
+          }),
+        }),
+      );
+    });
+
+    it("omits X-XS-Workspace-Id header when workspaceId is null", async () => {
+      (global.fetch as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
+        ok: true,
+        json: () => Promise.resolve(mockFlagsResponse),
+      });
+
+      render(
+        <FeatureFlagsProvider
+          apiBaseUrl="http://localhost:4100"
+          workspaceId={null}
+        >
+          <TestConsumer />
+        </FeatureFlagsProvider>,
+      );
+
+      await waitFor(() => {
+        expect(screen.getByTestId("loading").textContent).toBe("false");
+      });
+
+      const lastCall = (global.fetch as ReturnType<typeof vi.fn>).mock
+        .calls[0];
+      const headers = lastCall?.[1]?.headers as
+        | Record<string, string>
+        | undefined;
+      expect(headers).toBeDefined();
+      expect(headers && "X-XS-Workspace-Id" in headers).toBe(false);
+    });
+
+    it("omits X-XS-Workspace-Id header when workspaceId is omitted", async () => {
+      (global.fetch as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
+        ok: true,
+        json: () => Promise.resolve(mockFlagsResponse),
+      });
+
+      render(
+        <FeatureFlagsProvider apiBaseUrl="http://localhost:4100">
+          <TestConsumer />
+        </FeatureFlagsProvider>,
+      );
+
+      await waitFor(() => {
+        expect(screen.getByTestId("loading").textContent).toBe("false");
+      });
+
+      const headers = (global.fetch as ReturnType<typeof vi.fn>).mock
+        .calls[0]?.[1]?.headers as Record<string, string> | undefined;
+      expect(headers && "X-XS-Workspace-Id" in headers).toBe(false);
+    });
+
+    it("refetches flags when workspaceId changes (workspace switch)", async () => {
+      const responseA: FeatureFlagsResponse = {
+        flags: {
+          ...DEFAULT_FEATURE_FLAGS,
+          cms_editor_storage_uploads: false,
+        },
+        authenticated: true,
+      };
+      const responseB: FeatureFlagsResponse = {
+        flags: {
+          ...DEFAULT_FEATURE_FLAGS,
+          cms_editor_storage_uploads: true,
+        },
+        authenticated: true,
+      };
+
+      (global.fetch as ReturnType<typeof vi.fn>)
+        .mockResolvedValueOnce({
+          ok: true,
+          json: () => Promise.resolve(responseA),
+        })
+        .mockResolvedValueOnce({
+          ok: true,
+          json: () => Promise.resolve(responseB),
+        });
+
+      function StorageUploadsConsumer() {
+        const flag = useFeatureFlag("cms_editor_storage_uploads");
+        return <span data-testid="cms-uploads">{flag.toString()}</span>;
+      }
+
+      const { rerender } = render(
+        <FeatureFlagsProvider
+          apiBaseUrl="http://localhost:4100"
+          workspaceId="ws-aaa"
+        >
+          <StorageUploadsConsumer />
+        </FeatureFlagsProvider>,
+      );
+
+      await waitFor(() => {
+        expect(screen.getByTestId("cms-uploads").textContent).toBe("false");
+      });
+
+      expect(global.fetch).toHaveBeenCalledTimes(1);
+      expect(
+        (global.fetch as ReturnType<typeof vi.fn>).mock.calls[0]?.[1]?.headers,
+      ).toMatchObject({ "X-XS-Workspace-Id": "ws-aaa" });
+
+      // Switch workspace
+      rerender(
+        <FeatureFlagsProvider
+          apiBaseUrl="http://localhost:4100"
+          workspaceId="ws-bbb"
+        >
+          <StorageUploadsConsumer />
+        </FeatureFlagsProvider>,
+      );
+
+      await waitFor(() => {
+        expect(screen.getByTestId("cms-uploads").textContent).toBe("true");
+      });
+
+      expect(global.fetch).toHaveBeenCalledTimes(2);
+      expect(
+        (global.fetch as ReturnType<typeof vi.fn>).mock.calls[1]?.[1]?.headers,
+      ).toMatchObject({ "X-XS-Workspace-Id": "ws-bbb" });
+    });
+  });
 });
 
 describe("useOAuthProviders", () => {

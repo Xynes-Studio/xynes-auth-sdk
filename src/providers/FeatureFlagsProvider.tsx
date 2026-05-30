@@ -52,6 +52,21 @@ export interface FeatureFlagsProviderProps {
    * Optional access token getter for authenticated flag fetching
    */
   getAccessToken?: () => Promise<string | null>;
+  /**
+   * Optional active workspace id. When supplied, the SDK sends it as the
+   * `X-XS-Workspace-Id` request header on `/flags`, which the gateway
+   * (`xynes-gateway/src/routes/flags.route.ts`) extracts and forwards to
+   * PostHog for workspace-scoped flag evaluation.
+   *
+   * Changes to this value trigger an automatic refetch (the same way a
+   * change to `getAccessToken` does), so switching workspaces inside the
+   * app re-evaluates per-workspace flag rollouts without a page reload.
+   *
+   * Pass `null` (or omit) for unauthenticated / pre-workspace contexts —
+   * the SDK omits the header and the gateway falls back to user-scoped
+   * (or anonymous) evaluation.
+   */
+  workspaceId?: string | null;
 }
 
 /**
@@ -81,6 +96,7 @@ export function FeatureFlagsProvider({
   pollingInterval = 0,
   fetchOnMount = true,
   getAccessToken,
+  workspaceId = null,
 }: FeatureFlagsProviderProps) {
   const normalizedInitialFlags = useMemo(
     () => normalizeFeatureFlags(initialFlags),
@@ -120,6 +136,13 @@ export function FeatureFlagsProvider({
         if (token) {
           headers["Authorization"] = `Bearer ${token}`;
         }
+      }
+
+      // BUG-CMS-5: thread the active workspace id into the gateway so
+      // PostHog evaluates per-workspace flag rollouts correctly. Omitted
+      // when no workspace is selected (anonymous / pre-workspace path).
+      if (workspaceId) {
+        headers["X-XS-Workspace-Id"] = workspaceId;
       }
 
       // Use AbortController for request timeout (10 seconds)
@@ -164,7 +187,13 @@ export function FeatureFlagsProvider({
         error: error instanceof Error ? error : new Error("Unknown error"),
       }));
     }
-  }, [apiBaseUrl, getAccessToken, normalizedInitialFlags, normalizedOverrides]);
+  }, [
+    apiBaseUrl,
+    getAccessToken,
+    workspaceId,
+    normalizedInitialFlags,
+    normalizedOverrides,
+  ]);
 
   /**
    * Check if a specific flag is enabled
