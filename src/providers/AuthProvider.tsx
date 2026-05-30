@@ -45,10 +45,19 @@ interface AuthContextValue extends AuthState {
    * before the next render — so a downstream `selectWorkspace(...)` can
    * succeed without a hard reload.
    *
-   * Posture: no-op when logged out; never throws; transient network
-   * failures are swallowed and leave the existing in-memory `workspaces`
-   * untouched (we deliberately do NOT route through `handleSessionChange`,
-   * which would wipe the list to `[]` on a transient failure).
+   * Posture:
+   * - No-op when logged out.
+   * - Never throws; a transient network failure is swallowed and leaves
+   *   the existing in-memory `workspaces` untouched. (We deliberately do
+   *   NOT route through `handleSessionChange`, which would wipe the list
+   *   to `[]` on a transient failure.)
+   * - On 401/403 from `/me`, the user is signed out (canonical signed-out
+   *   state).
+   * - Cross-user safe: if the Supabase session rotates mid-flight to a
+   *   different non-null token (sign-out + sign-in as another user, or a
+   *   refresh that swapped the access token), the in-flight `/me` payload
+   *   is discarded — it belongs to the OLD token, not the current one.
+   * - Does NOT rotate the Supabase refresh token (that's `refreshSession`).
    */
   refreshWorkspaces: () => Promise<void>;
   getAccessToken: () => Promise<string | null>;
@@ -475,13 +484,29 @@ export function AuthProvider({
 
   /**
    * BUG-AUTH-2 (2026-05-30): Re-fetch `/me` without going through Supabase
-   * refresh-token rotation. See the docblock on `AuthContextValue.refreshWorkspaces`
-   * for the contract. The implementation deliberately bypasses
-   * `handleSessionChange` so a transient `/me` failure cannot wipe an
-   * already-good workspaces list to `[]`.
+   * refresh-token rotation. Used by callers that just mutated the
+   * server-side workspace set (e.g. just created or joined a workspace)
+   * and need the in-memory `workspaces` array to reflect the mutation
+   * before the next render — so a downstream `selectWorkspace(...)` can
+   * succeed without a hard reload.
+   *
+   * Posture:
+   * - No-op when logged out.
+   * - Never throws; a transient network failure is swallowed and leaves
+   *   the existing in-memory `workspaces` untouched. (We deliberately do
+   *   NOT route through `handleSessionChange`, which would wipe the list
+   *   to `[]` on a transient failure.)
+   * - On 401/403 from `/me`, the user is signed out (canonical signed-out
+   *   state).
+   * - Cross-user safe: if the Supabase session rotates mid-flight to a
+   *   different non-null token (sign-out + sign-in as another user, or a
+   *   refresh that swapped the access token), the in-flight `/me` payload
+   *   is discarded — it belongs to the OLD token, not the current one.
+   * - Does NOT rotate the Supabase refresh token (that's `refreshSession`).
    */
   const refreshWorkspaces = useCallback(async (): Promise<void> => {
-    if (!sessionRef.current?.access_token) {
+    const tokenAtStart = sessionRef.current?.access_token ?? null;
+    if (!tokenAtStart) {
       return;
     }
 
@@ -491,8 +516,16 @@ export function AuthProvider({
     try {
       const { bootstrap, unauthorized } = await bootstrapUser();
 
-      // Session rotated mid-flight → another listener already handled it.
-      if (!sessionRef.current?.access_token) {
+      // Session rotated mid-flight — either to a different non-null token
+      // (sign-out + sign-in as another user, or a refresh rotation) or to
+      // null (signed out). In either case, the `/me` payload we just got
+      // back belongs to `tokenAtStart`, NOT to whatever the current
+      // session is. Writing it into state would surface the wrong user's
+      // workspaces under the new session. Mirror the same guard
+      // `handleSessionChange` uses (see the `currentToken !== token`
+      // check above).
+      const currentToken = sessionRef.current?.access_token ?? null;
+      if (currentToken !== tokenAtStart) {
         return;
       }
 
@@ -500,7 +533,6 @@ export function AuthProvider({
         const safeWorkspaces = Array.isArray(bootstrap.workspaces)
           ? bootstrap.workspaces
           : [];
-        const token = sessionRef.current.access_token;
         const next: AuthState = {
           user: bootstrap.user,
           workspaces: safeWorkspaces,
@@ -508,7 +540,7 @@ export function AuthProvider({
           isAuthenticated: true,
           error: null,
         };
-        lastSuccessfulBootstrapTokenRef.current = token;
+        lastSuccessfulBootstrapTokenRef.current = tokenAtStart;
         stateRef.current = next;
         setState(next);
         return;

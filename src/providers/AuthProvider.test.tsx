@@ -952,6 +952,112 @@ describe("AuthProvider", () => {
       });
       expect(mockRefreshSession).not.toHaveBeenCalled();
     });
+
+    it("should discard an in-flight /me payload when the session rotates to a different user mid-flight (cross-user safety)", async () => {
+      // Codex P1 regression guard (PR #16). If `refreshWorkspaces` is in
+      // flight while the Supabase session changes to a different non-null
+      // token (e.g. sign-out + sign-in as another user, or a token
+      // rotation that fires `handleSessionChange`), the in-flight `/me`
+      // response belongs to the OLD token and MUST NOT be written into
+      // state under the NEW session. Without the captured-token guard,
+      // the consumer would briefly see user-A's workspaces under user-B's
+      // authenticated session — a cross-user data bleed.
+      const sessionA: Session = {
+        ...mockSession,
+        access_token: "token-a",
+        user: { ...mockSession.user, id: "user-a", email: "a@test.com" },
+      };
+      const sessionB: Session = {
+        ...mockSession,
+        access_token: "token-b",
+        user: { ...mockSession.user, id: "user-b", email: "b@test.com" },
+      };
+      const userA = {
+        ...mockUser,
+        id: "user-a",
+        email: "a@test.com",
+      };
+      const workspaceA = {
+        ...mockWorkspace,
+        id: "ws-a",
+        slug: "user-a-ws",
+        name: "User A workspace",
+      };
+      const userB = {
+        ...mockUser,
+        id: "user-b",
+        email: "b@test.com",
+      };
+      const workspaceB = {
+        ...mockWorkspace,
+        id: "ws-b",
+        slug: "user-b-ws",
+        name: "User B workspace",
+      };
+
+      mockGetSession.mockResolvedValue({ data: { session: sessionA } });
+
+      // Held /me for the refresh call. Resolved after the rotation lands.
+      let resolveRefreshMe!: (value: {
+        user: typeof userA;
+        workspaces: (typeof workspaceA)[];
+      }) => void;
+      const refreshMePromise = new Promise<{
+        user: typeof userA;
+        workspaces: (typeof workspaceA)[];
+      }>((res) => {
+        resolveRefreshMe = res;
+      });
+
+      mockGetMe
+        // 1. initial bootstrap for user A
+        .mockResolvedValueOnce({ user: userA, workspaces: [workspaceA] })
+        // 2. refreshWorkspaces /me for user A — HELD
+        .mockReturnValueOnce(refreshMePromise)
+        // 3. handleSessionChange bootstrap after rotation to user B
+        .mockResolvedValueOnce({ user: userB, workspaces: [workspaceB] });
+
+      const userEvt = userEvent.setup();
+      renderWithProvider();
+
+      await waitFor(() => {
+        expect(screen.getByTestId("user")).toHaveTextContent("a@test.com");
+      });
+      expect(mockGetMe).toHaveBeenCalledTimes(1);
+
+      // Kick off refreshWorkspaces — its /me call is held in the queue.
+      await act(async () => {
+        await userEvt.click(screen.getByText("Refresh Workspaces"));
+      });
+
+      // While the refresh is in flight, Supabase rotates the session to
+      // user B (different non-null access token). handleSessionChange
+      // fires its own bootstrap for user B.
+      await act(async () => {
+        authStateChangeCallback?.("SIGNED_IN", sessionB);
+      });
+
+      await waitFor(() => {
+        expect(screen.getByTestId("user")).toHaveTextContent("b@test.com");
+      });
+      expect(screen.getByTestId("workspaces-count")).toHaveTextContent("1");
+
+      // Now resolve the held refresh /me for user A. The cross-token
+      // guard MUST discard this payload — user A's workspaces must NOT
+      // surface under user B's authenticated session.
+      await act(async () => {
+        resolveRefreshMe({ user: userA, workspaces: [workspaceA] });
+        await refreshMePromise;
+      });
+
+      // Settle.
+      await Promise.resolve();
+
+      // Final state: still user B. No cross-user bleed.
+      expect(screen.getByTestId("user")).toHaveTextContent("b@test.com");
+      expect(screen.getByTestId("workspaces-count")).toHaveTextContent("1");
+      expect(mockRefreshSession).not.toHaveBeenCalled();
+    });
   });
 
   describe("Auth State Change Listener", () => {
