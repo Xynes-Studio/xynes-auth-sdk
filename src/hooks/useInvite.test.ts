@@ -431,8 +431,11 @@ describe("useInvite", () => {
       expect(result.current.error?.code).not.toBe("unknown_error");
     });
 
-    it("falls back to the original error path when getWorkspaces() throws during recovery", async () => {
+    it("surfaces recovery error (not forced session_expired) when getWorkspaces() throws during recovery", async () => {
       authenticatedUseAuth();
+      const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {
+        return;
+      });
 
       mockResolveInvite.mockResolvedValueOnce(mockInvite);
       mockAcceptInvite.mockRejectedValueOnce({
@@ -455,11 +458,13 @@ describe("useInvite", () => {
         acceptResult = await result.current.acceptInvite();
       });
 
-      // The hook still surfaces a session_expired (not unknown_error) so
-      // the user gets actionable copy rather than the generic
-      // "unexpected error" the bug reporter saw.
       expect(acceptResult).toBeNull();
-      expect(result.current.error?.code).toBe("session_expired");
+      expect(result.current.error?.code).toBe("network_error");
+      expect(warnSpy).toHaveBeenCalledWith(
+        "[useInvite] Recovery getWorkspaces() failed:",
+        { name: "Error" },
+      );
+      warnSpy.mockRestore();
     });
 
     it("does NOT trigger the recovery path for non-refresh-token errors (e.g. network, 404)", async () => {

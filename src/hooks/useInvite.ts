@@ -21,6 +21,24 @@ export interface UseInviteResult {
   isAccepting: boolean;
 }
 
+function summarizeErrorForLog(error: unknown): Record<string, string> {
+  if (!error || typeof error !== "object") {
+    return {};
+  }
+
+  const maybe = error as { name?: unknown; code?: unknown };
+  const summary: Record<string, string> = {};
+
+  if (typeof maybe.name === "string" && maybe.name.length > 0) {
+    summary.name = maybe.name;
+  }
+  if (typeof maybe.code === "string" && maybe.code.length > 0) {
+    summary.code = maybe.code;
+  }
+
+  return summary;
+}
+
 /**
  * Hook to manage invite resolution and acceptance
  *
@@ -140,14 +158,17 @@ export function useInvite(
             return matched;
           }
         } catch (recoveryErr) {
-          // Recovery failed — fall through to surface the original
-          // error. We deliberately do not surface the recovery error
-          // because the original `err` is the one the caller asked
-          // about.
+          // Recovery failed (e.g. transient network/rate-limit). We
+          // cannot confirm whether the join succeeded, so do NOT force
+          // a session-expired outcome.
           console.warn(
             "[useInvite] Recovery getWorkspaces() failed:",
-            recoveryErr,
+            summarizeErrorForLog(recoveryErr),
           );
+
+          const recoveryAuthError = normalizeAuthError(recoveryErr);
+          setError(recoveryAuthError);
+          return null;
         }
 
         // Recovery confirmed the join did NOT happen. Surface a

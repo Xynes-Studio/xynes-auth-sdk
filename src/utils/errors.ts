@@ -62,6 +62,7 @@ const ERROR_CODE_MAP: Record<string, AuthErrorCode> = {
   invalid_email: "invalid_email",
   over_request_rate_limit: "rate_limited",
   session_not_found: "session_expired",
+  authsessionmissingerror: "session_expired",
 
   // Common error message patterns
   "invalid login credentials": "invalid_credentials",
@@ -71,6 +72,8 @@ const ERROR_CODE_MAP: Record<string, AuthErrorCode> = {
   "failed to fetch": "network_error",
   network: "network_error",
   "session expired": "session_expired",
+  "auth session missing": "session_expired",
+  "invalid refresh token": "session_expired",
   "rate limit": "rate_limited",
   "invite not found": "invite_not_found",
   "invitation not found": "invite_not_found",
@@ -104,13 +107,26 @@ export function normalizeAuthError(error: unknown): AuthError {
 
   // Handle error objects
   if (typeof error === "object") {
-    const errorObj = error as { message?: string; code?: string };
+    const errorObj = error as {
+      message?: string;
+      code?: string;
+      name?: string;
+    };
     const errorCode = errorObj.code?.toLowerCase() || "";
+    const errorName = errorObj.name?.toLowerCase() || "";
     const errorMessage = errorObj.message?.toLowerCase() || "";
 
     // First try to match by code
     if (errorCode && ERROR_CODE_MAP[errorCode]) {
       const code = ERROR_CODE_MAP[errorCode];
+      return {
+        code,
+        message: ERROR_MESSAGES[code],
+      };
+    }
+
+    if (errorName && ERROR_CODE_MAP[errorName]) {
+      const code = ERROR_CODE_MAP[errorName];
       return {
         code,
         message: ERROR_MESSAGES[code],

@@ -1090,10 +1090,13 @@ describe("AuthProvider", () => {
     it("swallows Supabase 'Refresh Token Not Found' errors from getSession and returns null", async () => {
       // sessionRef.current must be null so getAccessToken falls through to supabase.auth.getSession().
       mockGetSession.mockResolvedValue({ data: { session: null } });
+      const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {
+        return;
+      });
 
       const refreshTokenError = Object.assign(
         new Error("Invalid Refresh Token: Refresh Token Not Found"),
-        { name: "AuthApiError" },
+        { name: "AuthApiError", code: "refresh_token_not_found" },
       );
 
       let getTokenResult: string | null | Error | undefined;
@@ -1123,6 +1126,12 @@ describe("AuthProvider", () => {
       await waitFor(() => {
         expect(getTokenResult).toBeNull();
       });
+
+      expect(warnSpy).toHaveBeenCalledWith(
+        "[AuthProvider] getAccessToken: Supabase refresh-token failure; returning null",
+        { name: "AuthApiError", code: "refresh_token_not_found" },
+      );
+      warnSpy.mockRestore();
     });
 
     it("re-throws non-refresh-token errors from getSession (does not over-swallow)", async () => {

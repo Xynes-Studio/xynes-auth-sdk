@@ -65,6 +65,24 @@ interface AuthContextValue extends AuthState {
 
 const AuthContext = createContext<AuthContextValue | null>(null);
 
+function summarizeErrorForLog(error: unknown): Record<string, string> {
+  if (!error || typeof error !== "object") {
+    return {};
+  }
+
+  const maybe = error as { name?: unknown; code?: unknown };
+  const summary: Record<string, string> = {};
+
+  if (typeof maybe.name === "string" && maybe.name.length > 0) {
+    summary.name = maybe.name;
+  }
+  if (typeof maybe.code === "string" && maybe.code.length > 0) {
+    summary.code = maybe.code;
+  }
+
+  return summary;
+}
+
 /**
  * AuthProvider props
  */
@@ -137,7 +155,7 @@ export function AuthProvider({
       if (isRefreshTokenError(error)) {
         console.warn(
           "[AuthProvider] getAccessToken: Supabase refresh-token failure; returning null",
-          error,
+          summarizeErrorForLog(error),
         );
         return null;
       }

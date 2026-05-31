@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 
-import { AccountsClient } from "./accounts-client";
+import { AccountsClient, AuthSessionMissingError } from "./accounts-client";
 
 describe("AccountsClient", () => {
   const getAccessToken = vi.fn<() => Promise<string | null>>();
@@ -215,9 +215,18 @@ describe("AccountsClient", () => {
         getAccessToken,
       });
 
-      await expect(client.acceptInvite("invite-token")).rejects.toMatchObject({
+      let thrown: unknown;
+      try {
+        await client.acceptInvite("invite-token");
+      } catch (error) {
+        thrown = error;
+      }
+
+      expect(thrown).toBeInstanceOf(AuthSessionMissingError);
+      expect(thrown).toMatchObject({
         name: "AuthSessionMissingError",
         message: "Auth session missing",
+        code: "session_not_found",
       });
       // fetch must NOT have been called — we fail before the network hop.
       expect(fetchMock).not.toHaveBeenCalled();

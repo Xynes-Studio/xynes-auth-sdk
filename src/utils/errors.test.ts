@@ -77,6 +77,17 @@ describe("error utilities", () => {
       const error = normalizeAuthError(null);
       expect(error.code).toBe("unknown_error");
     });
+
+    it("should map AuthSessionMissingError to session_expired", () => {
+      const error = normalizeAuthError({
+        name: "AuthSessionMissingError",
+        message: "Auth session missing",
+      });
+      expect(error.code).toBe("session_expired");
+      expect(error.message).toBe(
+        "Your session has expired. Please sign in again.",
+      );
+    });
   });
 
   describe("isRetryableError", () => {

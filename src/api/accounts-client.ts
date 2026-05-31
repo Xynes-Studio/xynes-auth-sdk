@@ -166,6 +166,15 @@ export interface ApiError {
   error?: string;
 }
 
+export class AuthSessionMissingError extends Error {
+  readonly code = "session_not_found" as const;
+
+  constructor() {
+    super("Auth session missing");
+    this.name = "AuthSessionMissingError";
+  }
+}
+
 /**
  * Type-safe API client for the accounts service
  */
@@ -198,10 +207,7 @@ export class AccountsClient {
     // instead of blindly forwarding an unauthenticated request that will 401
     // and be misidentified as an "unknown_error".
     if (includeAuth && !token) {
-      throw {
-        message: "Auth session missing",
-        name: "AuthSessionMissingError",
-      };
+      throw new AuthSessionMissingError();
     }
 
     const normalizedHeaders = attachCsrfToken(options.headers || {});
