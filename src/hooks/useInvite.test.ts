@@ -531,4 +531,74 @@ describe("useInvite", () => {
       expect(mockGetWorkspaces).not.toHaveBeenCalled();
     });
   });
+
+  describe("BUG-AUTH-10 — invite email mismatch surfaces invite_email_mismatch (not unknown_error)", () => {
+    const authenticatedUseAuth = () => {
+      mockUseAuth.mockReturnValue({
+        user: {
+          id: "user-1",
+          email: "wrong-account@example.com",
+          displayName: "Wrong Account",
+          avatarUrl: null,
+          emailVerified: true,
+          createdAt: "2024-01-01",
+          updatedAt: "2024-01-01",
+        },
+        isLoading: false,
+        isAuthenticated: true,
+        workspaces: [],
+        error: null,
+        signUp: vi.fn(),
+        signInWithPassword: vi.fn(),
+        signInWithOAuth: vi.fn(),
+        signOut: vi.fn(),
+        refreshSession: vi.fn(),
+        refreshWorkspaces: vi.fn(),
+        redirectToLogin: vi.fn(),
+        redirectToSignup: vi.fn(),
+        getAccessToken: vi.fn(),
+      });
+    };
+
+    it("surfaces invite_email_mismatch when the accounts-service returns 403 FORBIDDEN with the mismatch message", async () => {
+      authenticatedUseAuth();
+      mockResolveInvite.mockResolvedValueOnce(mockInvite);
+
+      // Exact shape thrown by AccountsClient.request() from the
+      // accounts-service backend (see
+      // xynes-accounts-service/src/actions/handlers/invites/accept.ts:99).
+      mockAcceptInvite.mockRejectedValueOnce({
+        code: "FORBIDDEN",
+        message: "Invite email does not match authenticated user",
+        statusCode: 403,
+      });
+
+      const { result } = renderHook(() =>
+        useInvite("test-token", "http://localhost:4100"),
+      );
+
+      await waitFor(() => {
+        expect(result.current.isLoading).toBe(false);
+      });
+
+      let acceptResult: unknown;
+      await act(async () => {
+        acceptResult = await result.current.acceptInvite();
+      });
+
+      expect(acceptResult).toBeNull();
+      // BUG-AUTH-10 invariant: the closed-set invite_email_mismatch code
+      // surfaces — NOT the generic unknown_error or unrelated
+      // session_expired code.
+      expect(result.current.error?.code).toBe("invite_email_mismatch");
+      expect(result.current.error?.message).toMatch(/different email address/i);
+      expect(result.current.error?.message).not.toMatch(/unexpected error/i);
+
+      // Defense in depth: the BUG-AUTH-4 refresh-token recovery path
+      // must NOT be triggered for the mismatch case — the backend has
+      // explicitly rejected the join, so a workspace-list lookup would
+      // falsely "confirm" success.
+      expect(mockGetWorkspaces).not.toHaveBeenCalled();
+    });
+  });
 });

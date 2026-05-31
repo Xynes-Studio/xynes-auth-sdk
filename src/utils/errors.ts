@@ -15,6 +15,8 @@ const ERROR_MESSAGES: Record<AuthErrorCode, string> = {
   rate_limited: "Too many attempts. Please wait a moment and try again.",
   invite_not_found: "This invitation is invalid or has expired.",
   already_in_workspace: "You are already a member of this workspace.",
+  invite_email_mismatch:
+    "This invitation was sent to a different email address. Please sign in with the invited account.",
   unknown_error: "An unexpected error occurred. Please try again.",
 };
 
@@ -38,6 +40,7 @@ export const AUTH_ERROR_MESSAGE_KEYS: Readonly<
   rate_limited: "rate_limited",
   invite_not_found: "invite_not_found",
   already_in_workspace: "already_in_workspace",
+  invite_email_mismatch: "invite_email_mismatch",
   unknown_error: "unknown_error",
 });
 
@@ -64,6 +67,14 @@ const ERROR_CODE_MAP: Record<string, AuthErrorCode> = {
   session_not_found: "session_expired",
   authsessionmissingerror: "session_expired",
 
+  // BUG-AUTH-10: accounts-service returns `{ code: 'FORBIDDEN', message: 'Invite email does not match authenticated user' }`
+  // when a user accepts an invite that was sent to a different email address.
+  // We surface this as a distinct closed-set code so consumers can render
+  // actionable copy ("Sign in with the correct account") rather than the
+  // generic "Unexpected error occurred." that `unknown_error` produces.
+  invite_email_mismatch: "invite_email_mismatch",
+  invite_email_does_not_match: "invite_email_mismatch",
+
   // Common error message patterns
   "invalid login credentials": "invalid_credentials",
   "email not confirmed": "email_not_verified",
@@ -79,6 +90,9 @@ const ERROR_CODE_MAP: Record<string, AuthErrorCode> = {
   "invitation not found": "invite_not_found",
   "already a member": "already_in_workspace",
   "already in workspace": "already_in_workspace",
+  // BUG-AUTH-10: backend message pattern emitted by `xynes-accounts-service/src/actions/handlers/invites/accept.ts`.
+  "invite email does not match": "invite_email_mismatch",
+  "invite email mismatch": "invite_email_mismatch",
 };
 
 /**
@@ -242,6 +256,75 @@ export function isRefreshTokenError(error: unknown): boolean {
     message.includes("invalid refresh token") ||
     message.includes("refresh_token_not_found") ||
     message.includes("auth session missing")
+  ) {
+    return true;
+  }
+
+  return false;
+}
+
+/**
+ * Detects whether an error from `accountsClient.acceptInvite` was the
+ * accounts-service's "invite email does not match authenticated user" 403.
+ *
+ * BUG-AUTH-10 (2026-05-31): when a signed-in user clicks an invite link that
+ * was issued for a different email address, the backend returns
+ * `{ code: 'FORBIDDEN', message: 'Invite email does not match authenticated user', statusCode: 403 }`.
+ * Without this helper, callers fall through `normalizeAuthError` and surface
+ * the generic "Unexpected error occurred." UI, which strips the user of the
+ * actionable next step ("sign in with the correct account"). Use this helper
+ * to surface a distinct `invite_email_mismatch` error code instead.
+ *
+ * Matching is intentionally narrow:
+ *   - `code === 'invite_email_mismatch'` (forward-compat: backend may upgrade
+ *     to a more specific code later)
+ *   - `code === 'forbidden'` AND HTTP status 403 AND message includes the
+ *     accounts-service phrase ("invite email does not match" / "invite email
+ *     mismatch") — this avoids false positives on other 403/FORBIDDEN errors
+ *     (e.g. RBAC checks, expired invite, etc.).
+ *
+ * Returns `false` for `null`/`undefined`/strings/numbers and for any error
+ * whose shape does not match the above. Does NOT match plain `code:
+ * 'FORBIDDEN'` errors that do not carry the invite-email-mismatch message.
+ *
+ * @param error - Any thrown value (typically caught from
+ *   `accountsClient.acceptInvite`).
+ * @returns true if the error is the accounts-service invite-email-mismatch
+ *   403, false otherwise.
+ */
+export function isInviteEmailMismatchError(error: unknown): boolean {
+  if (!error || typeof error !== "object") return false;
+  const maybe = error as {
+    message?: unknown;
+    code?: unknown;
+    statusCode?: unknown;
+    status?: unknown;
+  };
+
+  const code = typeof maybe.code === "string" ? maybe.code.toLowerCase() : "";
+  const message =
+    typeof maybe.message === "string" ? maybe.message.toLowerCase() : "";
+  const statusCode =
+    typeof maybe.statusCode === "number"
+      ? maybe.statusCode
+      : typeof maybe.status === "number"
+        ? maybe.status
+        : null;
+
+  // Forward-compatible: backend may upgrade to a precise code.
+  if (
+    code === "invite_email_mismatch" ||
+    code === "invite_email_does_not_match"
+  ) {
+    return true;
+  }
+
+  // Current shape: `{ code: 'FORBIDDEN', message: 'Invite email does not match authenticated user', statusCode: 403 }`.
+  if (
+    code === "forbidden" &&
+    statusCode === 403 &&
+    (message.includes("invite email does not match") ||
+      message.includes("invite email mismatch"))
   ) {
     return true;
   }

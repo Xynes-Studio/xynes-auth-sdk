@@ -115,6 +115,7 @@ export type AuthErrorCode =
   | "rate_limited"
   | "invite_not_found"
   | "already_in_workspace"
+  | "invite_email_mismatch"
   | "unknown_error";
 
 /**
