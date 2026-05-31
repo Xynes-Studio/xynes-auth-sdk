@@ -436,6 +436,7 @@ Invite contract notes:
 - `resolveInvite` handles gateway envelope and plain JSON responses.
 - Invite role is normalized from either `role` or `roleKey`.
 - `useInvite().acceptInvite()` returns the accepted workspace when available; if accept response omits workspace details, it falls back to workspace lookup.
+- **`useInvite().acceptInvite()` recovers silently from Supabase refresh-token side-effects (BUG-AUTH-4, 2026-05-30).** If the accept call throws a Supabase refresh-token error (e.g. `Invalid Refresh Token: Refresh Token Not Found`) — which can fire DURING the in-flight POST after a fresh OAuth callback, even though the join actually succeeded on the backend — the hook re-lists the user's workspaces and matches against `invite.workspaceId`. If the workspace is now present, the hook returns it silently (no error UI). Only when the recovery check confirms the join did NOT happen does the hook surface a `session_expired` error (NOT the generic `unknown_error`). Non-refresh-token errors (network, 404, etc.) still flow through the normal `normalizeAuthError` path unchanged.
 
 ### Utilities
 

@@ -3,7 +3,11 @@
 import { useState, useEffect, useCallback, useMemo } from "react";
 import type { WorkspaceInvite, Workspace, AuthError } from "../types";
 import { AccountsClient } from "../api/accounts-client";
-import { normalizeAuthError, getErrorMessage } from "../utils/errors";
+import {
+  getErrorMessage,
+  isRefreshTokenError,
+  normalizeAuthError,
+} from "../utils/errors";
 import { useAuth } from "../providers/AuthProvider";
 
 /**
@@ -17,6 +21,24 @@ export interface UseInviteResult {
   isAccepting: boolean;
 }
 
+function summarizeErrorForLog(error: unknown): Record<string, string> {
+  if (!error || typeof error !== "object") {
+    return {};
+  }
+
+  const maybe = error as { name?: unknown; code?: unknown };
+  const summary: Record<string, string> = {};
+
+  if (typeof maybe.name === "string" && maybe.name.length > 0) {
+    summary.name = maybe.name;
+  }
+  if (typeof maybe.code === "string" && maybe.code.length > 0) {
+    summary.code = maybe.code;
+  }
+
+  return summary;
+}
+
 /**
  * Hook to manage invite resolution and acceptance
  *
@@ -25,7 +47,7 @@ export interface UseInviteResult {
  */
 export function useInvite(
   token: string | null,
-  apiBaseUrl: string
+  apiBaseUrl: string,
 ): UseInviteResult {
   const { isAuthenticated, getAccessToken } = useAuth();
   const [invite, setInvite] = useState<WorkspaceInvite | null>(null);
@@ -40,7 +62,7 @@ export function useInvite(
         baseUrl: apiBaseUrl,
         getAccessToken,
       }),
-    [apiBaseUrl, getAccessToken]
+    [apiBaseUrl, getAccessToken],
   );
 
   // Resolve invite on mount or token change
@@ -82,7 +104,17 @@ export function useInvite(
   }, [token, apiBaseUrl]);
 
   /**
-   * Accept the invite (requires authentication)
+   * Accept the invite (requires authentication).
+   *
+   * BUG-AUTH-4 (2026-05-30): if the underlying HTTP call throws a
+   * Supabase refresh-token side-effect (e.g. "Invalid Refresh Token:
+   * Refresh Token Not Found") that fires DURING but is unrelated to the
+   * accept POST, the join may have actually succeeded on the backend.
+   * Before surfacing the error, we re-list the user's workspaces and
+   * check whether the invite's target workspace is now present. If yes,
+   * we return that workspace silently (the join did succeed; the error
+   * was a transient auth-side-effect). Only if the recovery check
+   * confirms the join did NOT happen do we surface the original error.
    */
   const acceptInvite = useCallback(async (): Promise<Workspace | null> => {
     if (!token || !isAuthenticated) {
@@ -101,18 +133,62 @@ export function useInvite(
       // Backward-compatible fallback for older accept payloads without workspace.
       if (result.workspaceId) {
         const workspaces = await accountsClient.getWorkspaces();
-        return workspaces.find((workspace) => workspace.id === result.workspaceId) ?? null;
+        return (
+          workspaces.find((workspace) => workspace.id === result.workspaceId) ??
+          null
+        );
       }
 
       return null;
     } catch (err) {
+      // BUG-AUTH-4: when the thrown error is a Supabase refresh-token
+      // side-effect, verify whether the join actually succeeded before
+      // surfacing the error. The invite token gives us the target
+      // workspace id, so we can match it against the freshly-loaded
+      // workspace list.
+      if (isRefreshTokenError(err) && invite?.workspaceId) {
+        try {
+          const workspaces = await accountsClient.getWorkspaces();
+          const matched = workspaces.find(
+            (workspace) => workspace.id === invite.workspaceId,
+          );
+          if (matched) {
+            // Join did succeed; the error was incidental — do NOT
+            // poison the UI with a generic "unexpected error".
+            return matched;
+          }
+        } catch (recoveryErr) {
+          // Recovery failed (e.g. transient network/rate-limit). We
+          // cannot confirm whether the join succeeded, so do NOT force
+          // a session-expired outcome.
+          console.warn(
+            "[useInvite] Recovery getWorkspaces() failed:",
+            summarizeErrorForLog(recoveryErr),
+          );
+
+          const recoveryAuthError = normalizeAuthError(recoveryErr);
+          setError(recoveryAuthError);
+          return null;
+        }
+
+        // Recovery confirmed the join did NOT happen. Surface a
+        // session-expired error rather than "unknown_error" so the user
+        // sees actionable copy.
+        const sessionError: AuthError = {
+          code: "session_expired",
+          message: getErrorMessage("session_expired"),
+        };
+        setError(sessionError);
+        return null;
+      }
+
       const authError = normalizeAuthError(err);
       setError(authError);
       return null;
     } finally {
       setIsAccepting(false);
     }
-  }, [token, isAuthenticated, accountsClient]);
+  }, [token, isAuthenticated, accountsClient, invite]);
 
   return {
     invite,

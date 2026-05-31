@@ -1060,6 +1060,112 @@ describe("AuthProvider", () => {
     });
   });
 
+  describe("getAccessToken refresh-token resilience (BUG-AUTH-4)", () => {
+    /**
+     * Exposes `getAccessToken` via a test-only button so we can drive it
+     * with the same provider wiring as the rest of the suite.
+     */
+    function GetAccessTokenProbe({
+      onResult,
+    }: {
+      onResult: (token: string | null | Error) => void;
+    }) {
+      const { getAccessToken } = useAuth();
+      return (
+        <button
+          onClick={async () => {
+            try {
+              const token = await getAccessToken();
+              onResult(token);
+            } catch (err) {
+              onResult(err as Error);
+            }
+          }}
+        >
+          Get Token
+        </button>
+      );
+    }
+
+    it("swallows Supabase 'Refresh Token Not Found' errors from getSession and returns null", async () => {
+      // sessionRef.current must be null so getAccessToken falls through to supabase.auth.getSession().
+      mockGetSession.mockResolvedValue({ data: { session: null } });
+      const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {
+        return;
+      });
+
+      const refreshTokenError = Object.assign(
+        new Error("Invalid Refresh Token: Refresh Token Not Found"),
+        { name: "AuthApiError", code: "refresh_token_not_found" },
+      );
+
+      let getTokenResult: string | null | Error | undefined;
+      const handleResult = (value: string | null | Error) => {
+        getTokenResult = value;
+      };
+
+      render(
+        <AuthProvider config={defaultConfig}>
+          <GetAccessTokenProbe onResult={handleResult} />
+        </AuthProvider>,
+      );
+
+      // Wait for the initial getSession() (which returns no session) to settle.
+      await waitFor(() => {
+        // Provider has finished initialization.
+        expect(mockGetSession).toHaveBeenCalled();
+      });
+
+      // Now make subsequent getSession() calls throw a refresh-token error
+      // (the second call inside getAccessToken).
+      mockGetSession.mockRejectedValueOnce(refreshTokenError);
+
+      const user = userEvent.setup();
+      await user.click(screen.getByText("Get Token"));
+
+      await waitFor(() => {
+        expect(getTokenResult).toBeNull();
+      });
+
+      expect(warnSpy).toHaveBeenCalledWith(
+        "[AuthProvider] getAccessToken: Supabase refresh-token failure; returning null",
+        { name: "AuthApiError", code: "refresh_token_not_found" },
+      );
+      warnSpy.mockRestore();
+    });
+
+    it("re-throws non-refresh-token errors from getSession (does not over-swallow)", async () => {
+      mockGetSession.mockResolvedValue({ data: { session: null } });
+
+      let getTokenResult: string | null | Error | undefined;
+      const handleResult = (value: string | null | Error) => {
+        getTokenResult = value;
+      };
+
+      render(
+        <AuthProvider config={defaultConfig}>
+          <GetAccessTokenProbe onResult={handleResult} />
+        </AuthProvider>,
+      );
+
+      await waitFor(() => {
+        expect(mockGetSession).toHaveBeenCalled();
+      });
+
+      // A genuine unrelated failure (e.g. network) should still propagate.
+      const networkError = new Error("Failed to fetch");
+      mockGetSession.mockRejectedValueOnce(networkError);
+
+      const user = userEvent.setup();
+      await user.click(screen.getByText("Get Token"));
+
+      await waitFor(() => {
+        expect(getTokenResult).toBeInstanceOf(Error);
+        expect((getTokenResult as Error).message).toBe("Failed to fetch");
+      });
+    });
+  });
+
   describe("Auth State Change Listener", () => {
     it("should update state when auth state changes", async () => {
       mockGetSession.mockResolvedValue({ data: { session: null } });

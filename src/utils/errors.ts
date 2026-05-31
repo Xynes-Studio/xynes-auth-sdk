@@ -19,6 +19,29 @@ const ERROR_MESSAGES: Record<AuthErrorCode, string> = {
 };
 
 /**
+ * Closed-set translation keys for auth error messaging.
+ *
+ * Consumers should use this mapping (or `getAuthErrorMessageKey`) to resolve
+ * i18n keys rather than rendering backend-facing error text directly.
+ */
+export const AUTH_ERROR_MESSAGE_KEYS: Readonly<
+  Record<AuthErrorCode, AuthErrorCode>
+> = Object.freeze({
+  invalid_credentials: "invalid_credentials",
+  email_not_verified: "email_not_verified",
+  user_not_found: "user_not_found",
+  email_already_exists: "email_already_exists",
+  weak_password: "weak_password",
+  invalid_email: "invalid_email",
+  network_error: "network_error",
+  session_expired: "session_expired",
+  rate_limited: "rate_limited",
+  invite_not_found: "invite_not_found",
+  already_in_workspace: "already_in_workspace",
+  unknown_error: "unknown_error",
+});
+
+/**
  * Error codes that can be retried (e.g., network issues, rate limiting)
  */
 const RETRYABLE_ERROR_CODES: AuthErrorCode[] = [
@@ -39,6 +62,7 @@ const ERROR_CODE_MAP: Record<string, AuthErrorCode> = {
   invalid_email: "invalid_email",
   over_request_rate_limit: "rate_limited",
   session_not_found: "session_expired",
+  authsessionmissingerror: "session_expired",
 
   // Common error message patterns
   "invalid login credentials": "invalid_credentials",
@@ -48,6 +72,8 @@ const ERROR_CODE_MAP: Record<string, AuthErrorCode> = {
   "failed to fetch": "network_error",
   network: "network_error",
   "session expired": "session_expired",
+  "auth session missing": "session_expired",
+  "invalid refresh token": "session_expired",
   "rate limit": "rate_limited",
   "invite not found": "invite_not_found",
   "invitation not found": "invite_not_found",
@@ -81,13 +107,26 @@ export function normalizeAuthError(error: unknown): AuthError {
 
   // Handle error objects
   if (typeof error === "object") {
-    const errorObj = error as { message?: string; code?: string };
+    const errorObj = error as {
+      message?: string;
+      code?: string;
+      name?: string;
+    };
     const errorCode = errorObj.code?.toLowerCase() || "";
+    const errorName = errorObj.name?.toLowerCase() || "";
     const errorMessage = errorObj.message?.toLowerCase() || "";
 
     // First try to match by code
     if (errorCode && ERROR_CODE_MAP[errorCode]) {
       const code = ERROR_CODE_MAP[errorCode];
+      return {
+        code,
+        message: ERROR_MESSAGES[code],
+      };
+    }
+
+    if (errorName && ERROR_CODE_MAP[errorName]) {
+      const code = ERROR_CODE_MAP[errorName];
       return {
         code,
         message: ERROR_MESSAGES[code],
@@ -141,4 +180,71 @@ export function isRetryableError(errorCode: AuthErrorCode): boolean {
  */
 export function getErrorMessage(errorCode: AuthErrorCode): string {
   return ERROR_MESSAGES[errorCode] || ERROR_MESSAGES.unknown_error;
+}
+
+/**
+ * Returns the closed-set translation key for an auth error code.
+ * Unknown values fail closed to `unknown_error`.
+ */
+export function getAuthErrorMessageKey(errorCode: string): AuthErrorCode {
+  if (errorCode in AUTH_ERROR_MESSAGE_KEYS) {
+    return errorCode as AuthErrorCode;
+  }
+
+  return "unknown_error";
+}
+
+/**
+ * Detects whether an error originated from Supabase's refresh-token /
+ * session-refresh internals (e.g. "Invalid Refresh Token: Refresh Token Not
+ * Found", "AuthSessionMissingError", "session_not_found"). Used by callers
+ * that need to treat these as recoverable side-effects rather than fatal
+ * failures of the in-flight request.
+ *
+ * BUG-AUTH-4 (2026-05-30): added so that `useInvite.acceptInvite` can
+ * distinguish a Supabase auto-refresh side-effect (which leaves the join
+ * successful on the backend) from a genuine accept failure, and so
+ * `getAccessToken` can fall back to `null` instead of poisoning a caller's
+ * try/catch chain.
+ *
+ * @param error - Any thrown value.
+ * @returns true if the error message/code matches a known refresh-token
+ *   failure surface from Supabase auth-js.
+ */
+export function isRefreshTokenError(error: unknown): boolean {
+  if (!error || typeof error !== "object") return false;
+  const maybe = error as {
+    message?: unknown;
+    code?: unknown;
+    name?: unknown;
+    status?: unknown;
+  };
+
+  const message =
+    typeof maybe.message === "string" ? maybe.message.toLowerCase() : "";
+  const code = typeof maybe.code === "string" ? maybe.code.toLowerCase() : "";
+  const name = typeof maybe.name === "string" ? maybe.name.toLowerCase() : "";
+
+  if (
+    code === "refresh_token_not_found" ||
+    code === "refresh_token_already_used" ||
+    code === "session_not_found"
+  ) {
+    return true;
+  }
+
+  if (name === "authsessionmissingerror") {
+    return true;
+  }
+
+  if (
+    message.includes("refresh token not found") ||
+    message.includes("invalid refresh token") ||
+    message.includes("refresh_token_not_found") ||
+    message.includes("auth session missing")
+  ) {
+    return true;
+  }
+
+  return false;
 }
