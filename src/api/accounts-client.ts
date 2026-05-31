@@ -96,7 +96,8 @@ function normalizeResolveInviteResponse(value: unknown): WorkspaceInvite {
   return {
     id: typeof record.id === "string" ? record.id : "",
     token: typeof record.token === "string" ? record.token : undefined,
-    workspaceId: typeof record.workspaceId === "string" ? record.workspaceId : "",
+    workspaceId:
+      typeof record.workspaceId === "string" ? record.workspaceId : "",
     workspaceSlug:
       typeof record.workspaceSlug === "string" ? record.workspaceSlug : null,
     workspaceName:
@@ -115,7 +116,9 @@ function normalizeResolveInviteResponse(value: unknown): WorkspaceInvite {
   };
 }
 
-function normalizeAcceptInviteResponse(value: unknown): WorkspaceInviteAcceptResult {
+function normalizeAcceptInviteResponse(
+  value: unknown,
+): WorkspaceInviteAcceptResult {
   const record = asRecord(value);
   if (!record) {
     throw new Error("Invalid accept invite response shape");
@@ -139,7 +142,7 @@ function normalizeAcceptInviteResponse(value: unknown): WorkspaceInviteAcceptRes
     workspaceId:
       typeof record.workspaceId === "string"
         ? record.workspaceId
-        : workspace?.id ?? "",
+        : (workspace?.id ?? ""),
     roleKey: normalizeWorkspaceRole(record.roleKey ?? workspace?.role),
     workspaceMemberCreated: Boolean(record.workspaceMemberCreated),
     workspace,
@@ -185,6 +188,21 @@ export class AccountsClient {
   ): Promise<T> {
     const includeAuth = requestConfig?.includeAuth !== false;
     const token = includeAuth ? await this.getAccessToken() : null;
+
+    // BUG-AUTH-4 (2026-05-30): if auth is required but getAccessToken()
+    // returned null (e.g. because AuthProvider.getAccessToken swallowed a
+    // Supabase refresh-token error and returned null rather than throwing),
+    // throw a recognizable "session missing" error now — BEFORE the fetch.
+    // This lets callers such as useInvite.acceptInvite detect the session
+    // issue via isRefreshTokenError() and attempt workspace-list recovery
+    // instead of blindly forwarding an unauthenticated request that will 401
+    // and be misidentified as an "unknown_error".
+    if (includeAuth && !token) {
+      throw {
+        message: "Auth session missing",
+        name: "AuthSessionMissingError",
+      };
+    }
 
     const normalizedHeaders = attachCsrfToken(options.headers || {});
 

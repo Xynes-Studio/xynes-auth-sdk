@@ -58,7 +58,7 @@ describe("useInvite", () => {
 
   it("should return initial state when no token provided", () => {
     const { result } = renderHook(() =>
-      useInvite(null, "http://localhost:4100")
+      useInvite(null, "http://localhost:4100"),
     );
 
     expect(result.current.invite).toBeNull();
@@ -72,7 +72,7 @@ describe("useInvite", () => {
     mockResolveInvite.mockImplementation(() => new Promise(() => {})); // Never resolves
 
     const { result } = renderHook(() =>
-      useInvite("test-token", "http://localhost:4100")
+      useInvite("test-token", "http://localhost:4100"),
     );
 
     expect(result.current.isLoading).toBe(true);
@@ -82,7 +82,7 @@ describe("useInvite", () => {
     mockResolveInvite.mockResolvedValueOnce(mockInvite);
 
     const { result } = renderHook(() =>
-      useInvite("valid-token", "http://localhost:4100")
+      useInvite("valid-token", "http://localhost:4100"),
     );
 
     await waitFor(() => {
@@ -97,7 +97,7 @@ describe("useInvite", () => {
     mockResolveInvite.mockRejectedValueOnce(new Error("Invite not found"));
 
     const { result } = renderHook(() =>
-      useInvite("invalid-token", "http://localhost:4100")
+      useInvite("invalid-token", "http://localhost:4100"),
     );
 
     await waitFor(() => {
@@ -110,7 +110,7 @@ describe("useInvite", () => {
 
   it("should return null from acceptInvite when no token", async () => {
     const { result } = renderHook(() =>
-      useInvite(null, "http://localhost:4100")
+      useInvite(null, "http://localhost:4100"),
     );
 
     let acceptResult: unknown;
@@ -125,7 +125,7 @@ describe("useInvite", () => {
     mockResolveInvite.mockResolvedValueOnce(mockInvite);
 
     const { result } = renderHook(() =>
-      useInvite("test-token", "http://localhost:4100")
+      useInvite("test-token", "http://localhost:4100"),
     );
 
     await waitFor(() => {
@@ -185,7 +185,7 @@ describe("useInvite", () => {
     });
 
     const { result } = renderHook(() =>
-      useInvite("test-token", "http://localhost:4100")
+      useInvite("test-token", "http://localhost:4100"),
     );
 
     await waitFor(() => {
@@ -245,7 +245,7 @@ describe("useInvite", () => {
     mockGetWorkspaces.mockResolvedValueOnce([fallbackWorkspace]);
 
     const { result } = renderHook(() =>
-      useInvite("test-token", "http://localhost:4100")
+      useInvite("test-token", "http://localhost:4100"),
     );
 
     await waitFor(() => {
@@ -289,11 +289,11 @@ describe("useInvite", () => {
 
     mockResolveInvite.mockResolvedValueOnce(mockInvite);
     mockAcceptInvite.mockRejectedValueOnce(
-      new Error("Failed to accept invite")
+      new Error("Failed to accept invite"),
     );
 
     const { result } = renderHook(() =>
-      useInvite("test-token", "http://localhost:4100")
+      useInvite("test-token", "http://localhost:4100"),
     );
 
     await waitFor(() => {
@@ -316,7 +316,7 @@ describe("useInvite", () => {
       ({ token }) => useInvite(token, "http://localhost:4100"),
       {
         initialProps: { token: "test-token" as string | null },
-      }
+      },
     );
 
     await waitFor(() => {
@@ -381,7 +381,7 @@ describe("useInvite", () => {
       mockGetWorkspaces.mockResolvedValueOnce([joinedWorkspace]);
 
       const { result } = renderHook(() =>
-        useInvite("test-token", "http://localhost:4100")
+        useInvite("test-token", "http://localhost:4100"),
       );
 
       await waitFor(() => {
@@ -412,7 +412,7 @@ describe("useInvite", () => {
       mockGetWorkspaces.mockResolvedValueOnce([]);
 
       const { result } = renderHook(() =>
-        useInvite("test-token", "http://localhost:4100")
+        useInvite("test-token", "http://localhost:4100"),
       );
 
       await waitFor(() => {
@@ -443,7 +443,7 @@ describe("useInvite", () => {
       mockGetWorkspaces.mockRejectedValueOnce(new Error("Network error"));
 
       const { result } = renderHook(() =>
-        useInvite("test-token", "http://localhost:4100")
+        useInvite("test-token", "http://localhost:4100"),
       );
 
       await waitFor(() => {
@@ -471,7 +471,7 @@ describe("useInvite", () => {
       });
 
       const { result } = renderHook(() =>
-        useInvite("test-token", "http://localhost:4100")
+        useInvite("test-token", "http://localhost:4100"),
       );
 
       await waitFor(() => {
@@ -500,7 +500,7 @@ describe("useInvite", () => {
       });
 
       const { result } = renderHook(() =>
-        useInvite("test-token", "http://localhost:4100")
+        useInvite("test-token", "http://localhost:4100"),
       );
 
       await waitFor(() => {

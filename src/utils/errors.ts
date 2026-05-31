@@ -19,6 +19,29 @@ const ERROR_MESSAGES: Record<AuthErrorCode, string> = {
 };
 
 /**
+ * Closed-set translation keys for auth error messaging.
+ *
+ * Consumers should use this mapping (or `getAuthErrorMessageKey`) to resolve
+ * i18n keys rather than rendering backend-facing error text directly.
+ */
+export const AUTH_ERROR_MESSAGE_KEYS: Readonly<
+  Record<AuthErrorCode, AuthErrorCode>
+> = Object.freeze({
+  invalid_credentials: "invalid_credentials",
+  email_not_verified: "email_not_verified",
+  user_not_found: "user_not_found",
+  email_already_exists: "email_already_exists",
+  weak_password: "weak_password",
+  invalid_email: "invalid_email",
+  network_error: "network_error",
+  session_expired: "session_expired",
+  rate_limited: "rate_limited",
+  invite_not_found: "invite_not_found",
+  already_in_workspace: "already_in_workspace",
+  unknown_error: "unknown_error",
+});
+
+/**
  * Error codes that can be retried (e.g., network issues, rate limiting)
  */
 const RETRYABLE_ERROR_CODES: AuthErrorCode[] = [
@@ -141,6 +164,18 @@ export function isRetryableError(errorCode: AuthErrorCode): boolean {
  */
 export function getErrorMessage(errorCode: AuthErrorCode): string {
   return ERROR_MESSAGES[errorCode] || ERROR_MESSAGES.unknown_error;
+}
+
+/**
+ * Returns the closed-set translation key for an auth error code.
+ * Unknown values fail closed to `unknown_error`.
+ */
+export function getAuthErrorMessageKey(errorCode: string): AuthErrorCode {
+  if (errorCode in AUTH_ERROR_MESSAGE_KEYS) {
+    return errorCode as AuthErrorCode;
+  }
+
+  return "unknown_error";
 }
 
 /**

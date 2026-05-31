@@ -3,6 +3,8 @@ import {
   normalizeAuthError,
   isRetryableError,
   getErrorMessage,
+  getAuthErrorMessageKey,
+  AUTH_ERROR_MESSAGE_KEYS,
   isRefreshTokenError,
 } from "./errors";
 import type { AuthErrorCode } from "../types";
@@ -114,6 +116,19 @@ describe("error utilities", () => {
       it(`should return correct message for ${code}`, () => {
         expect(getErrorMessage(code as AuthErrorCode)).toBe(expectedMessage);
       });
+    });
+  });
+
+  describe("getAuthErrorMessageKey", () => {
+    it("should return identity keys for known auth error codes", () => {
+      for (const [code, key] of Object.entries(AUTH_ERROR_MESSAGE_KEYS)) {
+        expect(key).toBe(code);
+        expect(getAuthErrorMessageKey(code)).toBe(code);
+      }
+    });
+
+    it("should fail closed to unknown_error for unrecognized values", () => {
+      expect(getAuthErrorMessageKey("not_a_real_code")).toBe("unknown_error");
     });
   });
 

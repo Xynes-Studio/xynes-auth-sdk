@@ -29,7 +29,7 @@ export interface UseInviteResult {
  */
 export function useInvite(
   token: string | null,
-  apiBaseUrl: string
+  apiBaseUrl: string,
 ): UseInviteResult {
   const { isAuthenticated, getAccessToken } = useAuth();
   const [invite, setInvite] = useState<WorkspaceInvite | null>(null);
@@ -44,7 +44,7 @@ export function useInvite(
         baseUrl: apiBaseUrl,
         getAccessToken,
       }),
-    [apiBaseUrl, getAccessToken]
+    [apiBaseUrl, getAccessToken],
   );
 
   // Resolve invite on mount or token change
@@ -115,7 +115,10 @@ export function useInvite(
       // Backward-compatible fallback for older accept payloads without workspace.
       if (result.workspaceId) {
         const workspaces = await accountsClient.getWorkspaces();
-        return workspaces.find((workspace) => workspace.id === result.workspaceId) ?? null;
+        return (
+          workspaces.find((workspace) => workspace.id === result.workspaceId) ??
+          null
+        );
       }
 
       return null;

@@ -205,4 +205,56 @@ describe("AccountsClient", () => {
     expect(result.workspace?.slug).toBe("acme");
     expect(result.workspace?.role).toBe("workspace_member");
   });
+
+  describe("BUG-AUTH-4 — null-token throws AuthSessionMissingError for auth-required calls", () => {
+    it("throws an isRefreshTokenError-compatible error when getAccessToken returns null", async () => {
+      getAccessToken.mockResolvedValue(null);
+
+      const client = new AccountsClient({
+        baseUrl: "http://localhost:4100",
+        getAccessToken,
+      });
+
+      await expect(client.acceptInvite("invite-token")).rejects.toMatchObject({
+        name: "AuthSessionMissingError",
+        message: "Auth session missing",
+      });
+      // fetch must NOT have been called — we fail before the network hop.
+      expect(fetchMock).not.toHaveBeenCalled();
+    });
+
+    it("does NOT throw before the fetch for auth-not-required calls (resolveInvite)", async () => {
+      getAccessToken.mockResolvedValue(null);
+      fetchMock.mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        json: async () => ({
+          ok: true,
+          data: {
+            id: "inv1",
+            workspaceId: "ws1",
+            workspaceSlug: "acme",
+            workspaceName: "Acme",
+            inviterName: null,
+            inviterEmail: null,
+            inviteeEmail: "a@b.com",
+            roleKey: "workspace_member",
+            status: "pending",
+            expiresAt: "2026-12-31T00:00:00.000Z",
+            createdAt: "2026-01-01T00:00:00.000Z",
+          },
+        }),
+      });
+
+      const client = new AccountsClient({
+        baseUrl: "http://localhost:4100",
+        getAccessToken,
+      });
+
+      // resolveInvite uses { includeAuth: false } — should reach the fetch.
+      const result = await client.resolveInvite("invite-token");
+      expect(result.workspaceId).toBe("ws1");
+      expect(fetchMock).toHaveBeenCalledTimes(1);
+    });
+  });
 });

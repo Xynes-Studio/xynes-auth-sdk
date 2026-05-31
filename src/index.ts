@@ -107,6 +107,8 @@ export {
   normalizeAuthError,
   isRetryableError,
   getErrorMessage,
+  getAuthErrorMessageKey,
+  AUTH_ERROR_MESSAGE_KEYS,
 } from "./utils/errors";
 
 // ─────────────────────────────────────────────────────────────────
