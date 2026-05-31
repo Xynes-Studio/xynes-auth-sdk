@@ -337,9 +337,9 @@ describe("error utilities", () => {
     it("handles null / undefined / non-objects without throwing", () => {
       expect(isInviteEmailMismatchError(null)).toBe(false);
       expect(isInviteEmailMismatchError(undefined)).toBe(false);
-      expect(
-        isInviteEmailMismatchError("Invite email does not match"),
-      ).toBe(false);
+      expect(isInviteEmailMismatchError("Invite email does not match")).toBe(
+        false,
+      );
       expect(isInviteEmailMismatchError(403)).toBe(false);
     });
 
