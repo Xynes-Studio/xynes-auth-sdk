@@ -4,8 +4,9 @@ import {
   isRetryableError,
   getErrorMessage,
   getAuthErrorMessageKey,
-  AUTH_ERROR_MESSAGE_KEYS,
   isRefreshTokenError,
+  isInviteEmailMismatchError,
+  AUTH_ERROR_MESSAGE_KEYS,
 } from "./errors";
 import type { AuthErrorCode } from "../types";
 
@@ -120,6 +121,8 @@ describe("error utilities", () => {
       rate_limited: "Too many attempts. Please wait a moment and try again.",
       invite_not_found: "This invitation is invalid or has expired.",
       already_in_workspace: "You are already a member of this workspace.",
+      invite_email_mismatch:
+        "This invitation was sent to a different email address. Please sign in with the invited account.",
       unknown_error: "An unexpected error occurred. Please try again.",
     };
 
@@ -235,6 +238,144 @@ describe("error utilities", () => {
       expect(isRefreshTokenError({})).toBe(false);
       expect(isRefreshTokenError({ message: 42 })).toBe(false);
       expect(isRefreshTokenError({ code: 42 })).toBe(false);
+    });
+  });
+
+  describe("isInviteEmailMismatchError (BUG-AUTH-10)", () => {
+    it("matches the canonical accounts-service 403 FORBIDDEN shape with mismatch message", () => {
+      expect(
+        isInviteEmailMismatchError({
+          code: "FORBIDDEN",
+          message: "Invite email does not match authenticated user",
+          statusCode: 403,
+        }),
+      ).toBe(true);
+    });
+
+    it("matches lower-case 'forbidden' (case-insensitive code)", () => {
+      expect(
+        isInviteEmailMismatchError({
+          code: "forbidden",
+          message: "Invite email does not match authenticated user",
+          statusCode: 403,
+        }),
+      ).toBe(true);
+    });
+
+    it("matches the forward-compatible specific code", () => {
+      expect(
+        isInviteEmailMismatchError({
+          code: "invite_email_mismatch",
+          message: "Anything",
+          statusCode: 403,
+        }),
+      ).toBe(true);
+      expect(
+        isInviteEmailMismatchError({
+          code: "INVITE_EMAIL_MISMATCH",
+          message: "Anything",
+          statusCode: 403,
+        }),
+      ).toBe(true);
+    });
+
+    it("uses `status` as a fallback for `statusCode` (defense in depth for other clients)", () => {
+      expect(
+        isInviteEmailMismatchError({
+          code: "FORBIDDEN",
+          message: "Invite email does not match authenticated user",
+          status: 403,
+        }),
+      ).toBe(true);
+    });
+
+    it("does NOT match generic FORBIDDEN 403 without the mismatch message", () => {
+      // e.g. RBAC permission denial unrelated to invite-email-mismatch.
+      expect(
+        isInviteEmailMismatchError({
+          code: "FORBIDDEN",
+          message: "Access denied",
+          statusCode: 403,
+        }),
+      ).toBe(false);
+    });
+
+    it("does NOT match mismatch message with non-403 status (defensive)", () => {
+      expect(
+        isInviteEmailMismatchError({
+          code: "FORBIDDEN",
+          message: "Invite email does not match authenticated user",
+          statusCode: 500,
+        }),
+      ).toBe(false);
+    });
+
+    it("does NOT match unrelated invite errors (invite_not_found, already_in_workspace, conflict)", () => {
+      expect(
+        isInviteEmailMismatchError({
+          code: "NOT_FOUND",
+          message: "Invite not found",
+          statusCode: 404,
+        }),
+      ).toBe(false);
+      expect(
+        isInviteEmailMismatchError({
+          code: "CONFLICT",
+          message: "Invite is not pending",
+          statusCode: 409,
+        }),
+      ).toBe(false);
+      expect(
+        isInviteEmailMismatchError({
+          code: "FORBIDDEN",
+          message: "Access denied",
+          statusCode: 403,
+        }),
+      ).toBe(false);
+    });
+
+    it("handles null / undefined / non-objects without throwing", () => {
+      expect(isInviteEmailMismatchError(null)).toBe(false);
+      expect(isInviteEmailMismatchError(undefined)).toBe(false);
+      expect(isInviteEmailMismatchError("Invite email does not match")).toBe(
+        false,
+      );
+      expect(isInviteEmailMismatchError(403)).toBe(false);
+    });
+
+    it("handles objects missing message/code/statusCode without throwing", () => {
+      expect(isInviteEmailMismatchError({})).toBe(false);
+      expect(isInviteEmailMismatchError({ message: 42 })).toBe(false);
+      expect(isInviteEmailMismatchError({ code: 42 })).toBe(false);
+    });
+
+    it("normalizeAuthError routes the backend 403 into the invite_email_mismatch code with actionable copy", () => {
+      const normalized = normalizeAuthError({
+        code: "FORBIDDEN",
+        message: "Invite email does not match authenticated user",
+        statusCode: 403,
+      });
+      expect(normalized.code).toBe("invite_email_mismatch");
+      expect(normalized.message).toMatch(/different email address/i);
+      expect(normalized.message).not.toMatch(/unexpected error/i);
+    });
+
+    it("AUTH_ERROR_MESSAGE_KEYS exposes the invite_email_mismatch key", () => {
+      expect(AUTH_ERROR_MESSAGE_KEYS.invite_email_mismatch).toBe(
+        "invite_email_mismatch",
+      );
+    });
+
+    it("getErrorMessage returns the actionable copy for invite_email_mismatch", () => {
+      expect(getErrorMessage("invite_email_mismatch")).toMatch(
+        /different email address/i,
+      );
+    });
+
+    it("getAuthErrorMessageKey resolves invite_email_mismatch", () => {
+      expect(getAuthErrorMessageKey("invite_email_mismatch")).toBe(
+        "invite_email_mismatch",
+      );
     });
   });
 });

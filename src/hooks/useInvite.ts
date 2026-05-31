@@ -5,6 +5,7 @@ import type { WorkspaceInvite, Workspace, AuthError } from "../types";
 import { AccountsClient } from "../api/accounts-client";
 import {
   getErrorMessage,
+  isInviteEmailMismatchError,
   isRefreshTokenError,
   normalizeAuthError,
 } from "../utils/errors";
@@ -141,6 +142,22 @@ export function useInvite(
 
       return null;
     } catch (err) {
+      // BUG-AUTH-10: when the accounts-service returns the
+      // "invite email does not match authenticated user" 403, surface
+      // a distinct closed-set `invite_email_mismatch` code so the UI can
+      // render actionable copy ("sign in with the correct account")
+      // rather than the generic "Unexpected error occurred." that
+      // `unknown_error` produces. This check runs BEFORE the BUG-AUTH-4
+      // refresh-token recovery path because the mismatch is a
+      // deterministic backend rejection — it has nothing to do with the
+      // Supabase refresh-token side-effect, and recovery would falsely
+      // "confirm" a join that the backend explicitly rejected.
+      if (isInviteEmailMismatchError(err)) {
+        const mismatchError = normalizeAuthError(err);
+        setError(mismatchError);
+        return null;
+      }
+
       // BUG-AUTH-4: when the thrown error is a Supabase refresh-token
       // side-effect, verify whether the join actually succeeded before
       // surfacing the error. The invite token gives us the target
