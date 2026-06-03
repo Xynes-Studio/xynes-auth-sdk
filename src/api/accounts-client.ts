@@ -4,6 +4,7 @@ import type {
   WorkspaceInvite,
   WorkspaceInviteAcceptResult,
   WorkspaceInviteCreateResult,
+  WorkspaceInviteResendResult,
   WorkspaceRole,
 } from "../types";
 import { attachCsrfToken } from "./interceptors/csrf-interceptor";
@@ -147,6 +148,56 @@ function normalizeAcceptInviteResponse(
     workspaceMemberCreated: Boolean(record.workspaceMemberCreated),
     workspace,
   };
+}
+
+/**
+ * Normalize the response shape from `POST /workspaces/:workspaceId/invites/:inviteId/resend`.
+ *
+ * Defensive — accepts a missing `lastEmailErrorCode` field as `null` (the
+ * happy path on a successful re-dispatch) and coerces `emailAttempts` into a
+ * non-negative integer. Never throws on unexpected upstream shapes — falls
+ * back to a documented-keys-only stub so a hostile field (e.g. `rawToken`)
+ * cannot bleed through into UI state.
+ */
+function normalizeResendInviteResponse(
+  value: unknown,
+  fallbackInviteId: string,
+): WorkspaceInviteResendResult {
+  const record = asRecord(value);
+  if (!record) {
+    return {
+      inviteId: fallbackInviteId,
+      emailAttempts: 0,
+      emailSentAt: null,
+      lastEmailErrorCode: null,
+    };
+  }
+
+  const inviteId =
+    typeof record.inviteId === "string" && record.inviteId.length > 0
+      ? record.inviteId
+      : fallbackInviteId;
+
+  const rawAttempts = record.emailAttempts;
+  const emailAttempts =
+    typeof rawAttempts === "number" &&
+    Number.isFinite(rawAttempts) &&
+    rawAttempts >= 0
+      ? Math.floor(rawAttempts)
+      : 0;
+
+  const emailSentAt =
+    typeof record.emailSentAt === "string" && record.emailSentAt.length > 0
+      ? record.emailSentAt
+      : null;
+
+  const lastEmailErrorCode =
+    typeof record.lastEmailErrorCode === "string" &&
+    record.lastEmailErrorCode.length > 0
+      ? record.lastEmailErrorCode
+      : null;
+
+  return { inviteId, emailAttempts, emailSentAt, lastEmailErrorCode };
 }
 
 /**
@@ -321,6 +372,41 @@ export class AccountsClient {
       },
     );
     return normalizeAcceptInviteResponse(raw);
+  }
+
+  /**
+   * Re-dispatch a pending workspace invite via `accounts.invites.resend`
+   * (MAIL-5). Rotates the invite token server-side and re-sends the email.
+   *
+   * Returns dispatch metadata only — the raw token is NEVER returned. The
+   * recipient receives the new token URL via the re-dispatched email.
+   *
+   * Closed-set error codes surfaced as `(error as { error?: { code?: string } }).error?.code`:
+   * - `NOT_FOUND` (404) — invite missing OR cross-workspace probe
+   * - `INVALID_STATE` (409) — invite no longer pending
+   * - `GONE` (410) — invite expired
+   * - `RATE_LIMITED` (429) — `email_attempts >= MAIL_RESEND_MAX_ATTEMPTS`
+   * - `FORBIDDEN_ACTOR_KIND` (403) — api_key actors (gateway also blocks)
+   * - `FORBIDDEN` (403) — authz denial
+   */
+  async resendWorkspaceInvite(
+    workspaceId: string,
+    inviteId: string,
+  ): Promise<WorkspaceInviteResendResult> {
+    const normalizedWorkspaceId = workspaceId.trim();
+    const normalizedInviteId = inviteId.trim();
+
+    const raw = await this.request<unknown>(
+      `/workspaces/${encodeURIComponent(
+        normalizedWorkspaceId,
+      )}/invites/${encodeURIComponent(normalizedInviteId)}/resend`,
+      {
+        method: "POST",
+        body: JSON.stringify({ inviteId: normalizedInviteId }),
+      },
+    );
+
+    return normalizeResendInviteResponse(raw, normalizedInviteId);
   }
 }
 

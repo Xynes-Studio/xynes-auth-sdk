@@ -157,6 +157,7 @@ export type {
   WorkspaceInvite,
   WorkspaceInviteCreateResult,
   WorkspaceInviteAcceptResult,
+  WorkspaceInviteResendResult,
   InviteStatus,
   AuthState,
   AuthError,
