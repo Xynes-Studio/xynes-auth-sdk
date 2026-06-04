@@ -82,6 +82,26 @@ export interface WorkspaceInviteAcceptResult {
 }
 
 /**
+ * Result returned when re-dispatching a pending workspace invite via
+ * `accounts.invites.resend` (MAIL-5).
+ *
+ * Note: the raw invite token is intentionally NOT included. The resend
+ * handler rotates the token server-side and embeds the new value into the
+ * re-dispatched email. Frontends MUST NOT need to retain the raw token.
+ */
+export interface WorkspaceInviteResendResult {
+  inviteId: string;
+  emailAttempts: number;
+  emailSentAt: string | null;
+  /**
+   * Closed-set `MailerError.code` from MAIL-2 when the most recent dispatch
+   * attempt failed. `null` when the dispatch succeeded or the field is
+   * unavailable.
+   */
+  lastEmailErrorCode: string | null;
+}
+
+/**
  * Auth state for the AuthProvider
  */
 export interface AuthState {

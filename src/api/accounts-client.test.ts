@@ -206,6 +206,225 @@ describe("AccountsClient", () => {
     expect(result.workspace?.role).toBe("workspace_member");
   });
 
+  describe("MAIL-6 — resendWorkspaceInvite", () => {
+    it("calls POST /workspaces/{wsId}/invites/{inviteId}/resend and normalizes the response", async () => {
+      fetchMock.mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        json: async () => ({
+          ok: true,
+          data: {
+            inviteId: "inv_1",
+            emailAttempts: 2,
+            emailSentAt: "2026-06-03T12:00:00.000Z",
+            lastEmailErrorCode: null,
+          },
+        }),
+      });
+
+      const client = new AccountsClient({
+        baseUrl: "http://localhost:4100",
+        getAccessToken,
+      });
+
+      const result = await client.resendWorkspaceInvite("ws_1", "inv_1");
+
+      expect(result).toEqual({
+        inviteId: "inv_1",
+        emailAttempts: 2,
+        emailSentAt: "2026-06-03T12:00:00.000Z",
+        lastEmailErrorCode: null,
+      });
+
+      const [url, init] = fetchMock.mock.calls[0];
+      expect(url).toBe(
+        "http://localhost:4100/workspaces/ws_1/invites/inv_1/resend",
+      );
+      expect(init.method).toBe("POST");
+      expect(init.body).toBe(JSON.stringify({ inviteId: "inv_1" }));
+
+      const headers = init.headers as Record<string, string>;
+      expect(headers.Authorization).toBe("Bearer test-token");
+      expect(headers["x-csrf-token"]).toBe("test-csrf-token");
+    });
+
+    it("encodes path segments to prevent URL injection", async () => {
+      fetchMock.mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        json: async () => ({
+          ok: true,
+          data: {
+            inviteId: "inv with space",
+            emailAttempts: 1,
+            emailSentAt: null,
+            lastEmailErrorCode: null,
+          },
+        }),
+      });
+
+      const client = new AccountsClient({
+        baseUrl: "http://localhost:4100",
+        getAccessToken,
+      });
+
+      await client.resendWorkspaceInvite("ws/1", "inv with space");
+
+      const [url] = fetchMock.mock.calls[0];
+      // workspaceId and inviteId are encoded — '/' and space survive as %2F / %20.
+      expect(url).toBe(
+        "http://localhost:4100/workspaces/ws%2F1/invites/inv%20with%20space/resend",
+      );
+    });
+
+    it("returns a documented-keys-only result when the upstream payload is malformed", async () => {
+      fetchMock.mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        json: async () => ({
+          ok: true,
+          // Hostile / malformed payload — string emailAttempts, leaked rawToken.
+          data: {
+            inviteId: "inv_1",
+            emailAttempts: "not-a-number",
+            emailSentAt: "",
+            lastEmailErrorCode: 12345,
+            rawToken: "xyn_inv_LEAK_DO_NOT_RETURN_TO_UI",
+            keyHash: "$argon2id$leak",
+          },
+        }),
+      });
+
+      const client = new AccountsClient({
+        baseUrl: "http://localhost:4100",
+        getAccessToken,
+      });
+
+      const result = await client.resendWorkspaceInvite("ws_1", "inv_1");
+
+      // Only documented keys survive.
+      expect(Object.keys(result).sort()).toEqual([
+        "emailAttempts",
+        "emailSentAt",
+        "inviteId",
+        "lastEmailErrorCode",
+      ]);
+      expect(result.emailAttempts).toBe(0);
+      expect(result.emailSentAt).toBeNull();
+      expect(result.lastEmailErrorCode).toBeNull();
+      // Hostile field absolutely must not bleed through.
+      expect(
+        (result as unknown as Record<string, unknown>).rawToken,
+      ).toBeUndefined();
+      expect(JSON.stringify(result)).not.toContain("LEAK");
+    });
+
+    it("falls back to the caller-provided inviteId when the upstream omits it", async () => {
+      fetchMock.mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        json: async () => ({ ok: true, data: {} }),
+      });
+
+      const client = new AccountsClient({
+        baseUrl: "http://localhost:4100",
+        getAccessToken,
+      });
+
+      const result = await client.resendWorkspaceInvite("ws_1", "inv_fallback");
+      expect(result.inviteId).toBe("inv_fallback");
+      expect(result.emailAttempts).toBe(0);
+      expect(result.emailSentAt).toBeNull();
+      expect(result.lastEmailErrorCode).toBeNull();
+    });
+
+    it("forwards closed-set error envelopes from the gateway (RATE_LIMITED)", async () => {
+      fetchMock.mockResolvedValueOnce({
+        ok: false,
+        status: 429,
+        statusText: "Too Many Requests",
+        headers: {
+          get: (name: string) =>
+            name.toLowerCase() === "retry-after" ? null : null,
+        },
+        json: async () => ({
+          ok: false,
+          error: {
+            code: "RATE_LIMITED",
+            message: "Too many resend attempts for this invite",
+          },
+        }),
+      });
+
+      const client = new AccountsClient({
+        baseUrl: "http://localhost:4100",
+        getAccessToken,
+      });
+
+      let thrown: unknown;
+      try {
+        await client.resendWorkspaceInvite("ws_1", "inv_1");
+      } catch (error) {
+        thrown = error;
+      }
+
+      // ApiError envelope shape — the consumer can read .error.code.
+      expect(thrown).toMatchObject({
+        ok: false,
+        error: { code: "RATE_LIMITED" },
+      });
+    });
+
+    it("throws AuthSessionMissingError when the access token is null", async () => {
+      getAccessToken.mockResolvedValue(null);
+
+      const client = new AccountsClient({
+        baseUrl: "http://localhost:4100",
+        getAccessToken,
+      });
+
+      let thrown: unknown;
+      try {
+        await client.resendWorkspaceInvite("ws_1", "inv_1");
+      } catch (error) {
+        thrown = error;
+      }
+
+      expect(thrown).toBeInstanceOf(AuthSessionMissingError);
+      expect(fetchMock).not.toHaveBeenCalled();
+    });
+
+    it("trims workspaceId and inviteId before encoding", async () => {
+      fetchMock.mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        json: async () => ({
+          ok: true,
+          data: {
+            inviteId: "inv_1",
+            emailAttempts: 1,
+            emailSentAt: null,
+            lastEmailErrorCode: null,
+          },
+        }),
+      });
+
+      const client = new AccountsClient({
+        baseUrl: "http://localhost:4100",
+        getAccessToken,
+      });
+
+      await client.resendWorkspaceInvite("  ws_1  ", "  inv_1  ");
+
+      const [url, init] = fetchMock.mock.calls[0];
+      expect(url).toBe(
+        "http://localhost:4100/workspaces/ws_1/invites/inv_1/resend",
+      );
+      // The body carries the trimmed inviteId — the handler reads `payload.inviteId`.
+      expect(init.body).toBe(JSON.stringify({ inviteId: "inv_1" }));
+    });
+  });
+
   describe("BUG-AUTH-4 — null-token throws AuthSessionMissingError for auth-required calls", () => {
     it("throws an isRefreshTokenError-compatible error when getAccessToken returns null", async () => {
       getAccessToken.mockResolvedValue(null);
