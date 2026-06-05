@@ -1,0 +1,12 @@
+# Default reviewers for everything
+*                                          @archan96
+
+# Specific paths (uncomment what applies)
+# /src/providers/                              @archan96
+# /src/api/                                    @archan96
+# /src/core/                                   @archan96
+# /src/modules/                                @archan96
+# /src/types/                                  @archan96
+# /src/test/                                   @archan96
+# /tsup.config.ts                              @archan96
+# /.github/                                    @archan96
