@@ -1,0 +1,12 @@
+# Default reviewers for everything
+*                                          @REPLACE_WITH_PLATFORM_TEAM
+
+# Specific paths (uncomment what applies)
+# /src/providers/                              @REPLACE_WITH_PLATFORM_TEAM
+# /src/api/                                    @REPLACE_WITH_SECURITY_TEAM
+# /src/core/                                   @REPLACE_WITH_SECURITY_TEAM
+# /src/modules/                                @REPLACE_WITH_PLATFORM_TEAM
+# /src/types/                                  @REPLACE_WITH_PLATFORM_TEAM
+# /src/test/                                   @REPLACE_WITH_PLATFORM_TEAM
+# /tsup.config.ts                              @REPLACE_WITH_PLATFORM_TEAM
+# /.github/                                    @REPLACE_WITH_PLATFORM_TEAM
