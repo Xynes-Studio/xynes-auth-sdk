@@ -1,12 +1,12 @@
 # Default reviewers for everything
-*                                          @REPLACE_WITH_PLATFORM_TEAM
+*                                          @archan96
 
 # Specific paths (uncomment what applies)
-# /src/providers/                              @REPLACE_WITH_PLATFORM_TEAM
-# /src/api/                                    @REPLACE_WITH_SECURITY_TEAM
-# /src/core/                                   @REPLACE_WITH_SECURITY_TEAM
-# /src/modules/                                @REPLACE_WITH_PLATFORM_TEAM
-# /src/types/                                  @REPLACE_WITH_PLATFORM_TEAM
-# /src/test/                                   @REPLACE_WITH_PLATFORM_TEAM
-# /tsup.config.ts                              @REPLACE_WITH_PLATFORM_TEAM
-# /.github/                                    @REPLACE_WITH_PLATFORM_TEAM
+# /src/providers/                              @archan96
+# /src/api/                                    @archan96
+# /src/core/                                   @archan96
+# /src/modules/                                @archan96
+# /src/types/                                  @archan96
+# /src/test/                                   @archan96
+# /tsup.config.ts                              @archan96
+# /.github/                                    @archan96
