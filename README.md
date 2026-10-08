@@ -557,3 +557,17 @@ pnpm test:coverage  # Run with coverage report
 ## License
 
 MIT © Xynes Studio
+
+## CMS integration rollout flag
+
+`cms_content_integrations` is a boolean in `FeatureFlags`, default `false`.
+`FeatureFlagsProvider` accepts the gateway `/flags` result and forwards the active
+workspace as `X-XS-Workspace-Id`. Consume it with `useFeatureFlag`; CMS additionally
+hides controls during loading or errors. Missing/non-boolean values stay off.
+The gateway owns PostHog evaluation; no browser PostHog key is required.
+
+The provider ignores responses from obsolete evaluations after a workspace switch
+or unmount, including stale failures. This prevents a slow enabled-workspace
+response from overriding a newer disabled-workspace result. SDK dependency setup
+uses its own `pnpm install --frozen-lockfile`; do not link its test packages from
+another app with a different Vitest version.

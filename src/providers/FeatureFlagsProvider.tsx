@@ -7,6 +7,7 @@ import {
   useState,
   useCallback,
   useMemo,
+  useRef,
 } from "react";
 import type {
   FeatureFlags,
@@ -118,11 +119,14 @@ export function FeatureFlagsProvider({
     error: null,
     lastFetched: null,
   });
+  // A newer evaluation owns the state, including after workspace switches.
+  const requestVersion = useRef(0);
 
   /**
    * Fetch flags from the backend
    */
   const fetchFlags = useCallback(async () => {
+    const version = ++requestVersion.current;
     try {
       setState((prev) => ({ ...prev, isLoading: true, error: null }));
 
@@ -163,6 +167,7 @@ export function FeatureFlagsProvider({
       const data: FeatureFlagsResponse = await response.json();
 
       const normalizedFetchedFlags = normalizeFeatureFlags(data?.flags);
+      if (version !== requestVersion.current) return;
 
       setState({
         flags: {
@@ -177,6 +182,7 @@ export function FeatureFlagsProvider({
         lastFetched: new Date(),
       });
     } catch (error) {
+      if (version !== requestVersion.current) return;
       console.warn(
         "[FeatureFlags] Failed to fetch flags, using defaults:",
         error,
@@ -229,6 +235,9 @@ export function FeatureFlagsProvider({
     if (fetchOnMount) {
       fetchFlags();
     }
+    return () => {
+      requestVersion.current += 1;
+    };
   }, [fetchOnMount, fetchFlags]);
 
   // Set up polling if enabled

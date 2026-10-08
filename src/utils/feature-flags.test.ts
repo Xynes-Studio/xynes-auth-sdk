@@ -2,6 +2,17 @@ import { describe, it, expect } from "vitest";
 import { normalizeFeatureFlags } from "./feature-flags";
 
 describe("normalizeFeatureFlags", () => {
+  it("preserves the CMS integration boolean from the gateway", () => {
+    expect(normalizeFeatureFlags({ cms_content_integrations: true })).toEqual({
+      cms_content_integrations: true,
+    });
+    expect(normalizeFeatureFlags({ cms_content_integrations: false })).toEqual({
+      cms_content_integrations: false,
+    });
+    expect(normalizeFeatureFlags({ cms_content_integrations: "true" })).toEqual(
+      {},
+    );
+  });
   it("maps gateway-style keys to SDK keys", () => {
     const result = normalizeFeatureFlags({
       enableOAuthGoogle: true,
