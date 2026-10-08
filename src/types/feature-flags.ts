@@ -39,6 +39,8 @@ export interface FeatureFlags {
   // STORAGE-LIVE-5: gate the CMS editor's inline storage-upload affordance.
   // Workspace-scoped; gateway evaluates per-workspace via PostHog.
   cms_editor_storage_uploads: boolean;
+  /** Workspace-scoped CMS folder/entry REST integration controls. */
+  cms_content_integrations: boolean;
 
   // System
   xynes_maintenance_mode: boolean;
@@ -74,6 +76,7 @@ export const DEFAULT_FEATURE_FLAGS: FeatureFlags = {
 
   // CMS features (STORAGE-LIVE-5 — default OFF per rollout plan §8)
   cms_editor_storage_uploads: false,
+  cms_content_integrations: false,
 
   // System
   xynes_maintenance_mode: false,

@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-import { render, screen, waitFor } from "@testing-library/react";
+import { act, render, renderHook, screen, waitFor } from "@testing-library/react";
 import {
   FeatureFlagsProvider,
   useFeatureFlags,
@@ -74,6 +74,7 @@ describe("FeatureFlagsProvider", () => {
       xynes_invite_system: true,
       xynes_invite_revocation: true,
       cms_editor_storage_uploads: false,
+      cms_content_integrations: false,
       xynes_maintenance_mode: false,
     },
     authenticated: false,
@@ -90,6 +91,118 @@ describe("FeatureFlagsProvider", () => {
 
   it("includes apps dashboard v1 flag in defaults as disabled", () => {
     expect(DEFAULT_FEATURE_FLAGS.xynes_auth_dashboard_apps_v1).toBe(false);
+  });
+
+  it.each(["success", "error"])(
+    "ignores a late workspace-A %s after workspace B has resolved",
+    async (lateResult) => {
+      let resolveFirst: (response: Response) => void = () => {
+        throw new Error("Request not initialized");
+      };
+      let rejectFirst: (error: Error) => void = () => {
+        throw new Error("Request not initialized");
+      };
+      const first = new Promise<Response>((resolve, reject) => {
+        resolveFirst = resolve;
+        rejectFirst = reject;
+      });
+      const secondEnabled = lateResult === "error";
+      const fetch = vi
+        .fn()
+        .mockReturnValueOnce(first)
+        .mockResolvedValueOnce(
+          Response.json({
+            authenticated: true,
+            flags: { cms_content_integrations: secondEnabled },
+          }),
+        );
+      global.fetch = fetch;
+      const getAccessToken = async () => "fixture-token";
+      function Consumer() {
+        const { error } = useFeatureFlags();
+        return (
+          <>
+            <span data-testid="integration-scope">
+              {String(useFeatureFlag("cms_content_integrations"))}
+            </span>
+            <span data-testid="scope-error">{error?.message ?? "none"}</span>
+          </>
+        );
+      }
+      const tree = (workspaceId: string) => (
+        <FeatureFlagsProvider
+          apiBaseUrl="http://localhost:4100"
+          workspaceId={workspaceId}
+          getAccessToken={getAccessToken}
+        >
+          <Consumer />
+        </FeatureFlagsProvider>
+      );
+      const { rerender } = render(tree("workspace-a"));
+      await waitFor(() => expect(fetch).toHaveBeenCalledTimes(1));
+      rerender(tree("workspace-b"));
+      await waitFor(() => expect(fetch).toHaveBeenCalledTimes(2));
+      await waitFor(() =>
+        expect(screen.getByTestId("integration-scope").textContent).toBe(
+          String(secondEnabled),
+        ),
+      );
+      await act(async () => {
+        if (lateResult === "success")
+          resolveFirst(
+            Response.json({
+              authenticated: true,
+              flags: { cms_content_integrations: true },
+            }),
+          );
+        else rejectFirst(new Error("Obsolete workspace failure"));
+        await first.catch(() => undefined);
+      });
+      expect(screen.getByTestId("integration-scope").textContent).toBe(
+        String(secondEnabled),
+      );
+      expect(screen.getByTestId("scope-error").textContent).toBe("none");
+    },
+  );
+
+  it("defaults content integrations off until a gateway response enables them", async () => {
+    expect(DEFAULT_FEATURE_FLAGS.cms_content_integrations).toBe(false);
+    function IntegrationsConsumer() {
+      return (
+        <span data-testid="integrations">
+          {String(useFeatureFlag("cms_content_integrations"))}
+        </span>
+      );
+    }
+    (global.fetch as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({
+        authenticated: true,
+        flags: { cms_content_integrations: true },
+      }),
+    });
+    render(
+      <FeatureFlagsProvider
+        apiBaseUrl="http://localhost:4100"
+        workspaceId="ws-456"
+        getAccessToken={async () => "fixture-token"}
+      >
+        <IntegrationsConsumer />
+      </FeatureFlagsProvider>,
+    );
+    expect(screen.getByTestId("integrations").textContent).toBe("false");
+    await waitFor(() =>
+      expect(screen.getByTestId("integrations").textContent).toBe("true"),
+    );
+    expect(global.fetch).toHaveBeenCalledWith(
+      "http://localhost:4100/flags",
+      expect.objectContaining({
+        headers: expect.objectContaining({
+          Authorization: "Bearer fixture-token",
+          "X-XS-Workspace-Id": "ws-456",
+        }),
+      }),
+    );
   });
 
   it("includes cms_editor_storage_uploads flag in defaults as disabled (STORAGE-LIVE-5)", () => {
@@ -190,6 +303,101 @@ describe("FeatureFlagsProvider", () => {
     expect(screen.getByTestId("loading").textContent).toBe("false");
     expect(global.fetch).not.toHaveBeenCalled();
   });
+
+  it.each(["success", "error"])(
+    "lets a slow poll finish with %s before starting the next poll",
+    async (result) => {
+      vi.useFakeTimers();
+      let resolveFirst: (response: Response) => void = () => {
+        throw new Error("Request not initialized");
+      };
+      let rejectFirst: (error: Error) => void = () => {
+        throw new Error("Request not initialized");
+      };
+      const first = new Promise<Response>((resolve, reject) => {
+        resolveFirst = resolve;
+        rejectFirst = reject;
+      });
+      const fetch = vi.fn().mockReturnValueOnce(first).mockImplementation(
+        async () => Response.json(mockFlagsResponse),
+      );
+      global.fetch = fetch;
+      vi.spyOn(console, "warn").mockImplementation(() => {});
+      const { unmount } = render(
+        <FeatureFlagsProvider apiBaseUrl="http://localhost:4100" pollingInterval={10}>
+          <TestConsumer />
+        </FeatureFlagsProvider>,
+      );
+      try {
+        await act(() => vi.advanceTimersByTimeAsync(30));
+        expect(fetch).toHaveBeenCalledTimes(1);
+        await act(async () => {
+          if (result === "success") resolveFirst(Response.json(mockFlagsResponse));
+          else rejectFirst(new Error("Slow poll failed"));
+          await first.catch(() => undefined);
+        });
+        expect(screen.getByTestId("loading").textContent).toBe("false");
+        expect(screen.getByTestId("error").textContent).toBe(
+          result === "error" ? "Slow poll failed" : "none",
+        );
+        await act(() => vi.advanceTimersByTimeAsync(10));
+        expect(fetch).toHaveBeenCalledTimes(2);
+        expect(screen.getByTestId("loading").textContent).toBe("false");
+        expect(screen.getByTestId("google").textContent).toBe("true");
+        expect(screen.getByTestId("error").textContent).toBe("none");
+      } finally {
+        unmount();
+        vi.useRealTimers();
+      }
+    },
+  );
+
+  it.each(["success", "error"])(
+    "clears a manual request's loading state on workspace change before its late %s",
+    async (lateResult) => {
+      let resolveFirst: (response: Response) => void = () => {
+        throw new Error("Request not initialized");
+      };
+      let rejectFirst: (error: Error) => void = () => {
+        throw new Error("Request not initialized");
+      };
+      const first = new Promise<Response>((resolve, reject) => {
+        resolveFirst = resolve;
+        rejectFirst = reject;
+      });
+      const fetch = vi.fn().mockReturnValueOnce(first).mockResolvedValueOnce(
+        Response.json({ flags: { cms_content_integrations: false }, authenticated: true }),
+      );
+      global.fetch = fetch;
+      let workspaceId = "workspace-a";
+      const { result, rerender } = renderHook(() => useFeatureFlags(), {
+        wrapper: ({ children }) => (
+          <FeatureFlagsProvider apiBaseUrl="http://localhost:4100" fetchOnMount={false} workspaceId={workspaceId}>
+            {children}
+          </FeatureFlagsProvider>
+        ),
+      });
+      let pending: Promise<void> = Promise.resolve();
+      act(() => { pending = result.current.refetch(); });
+      expect(result.current.isLoading).toBe(true);
+      workspaceId = "workspace-b";
+      rerender();
+      expect(fetch).toHaveBeenCalledTimes(1);
+      expect(result.current.isLoading).toBe(false);
+      await act(async () => {
+        if (lateResult === "success") resolveFirst(Response.json({ flags: { cms_content_integrations: true }, authenticated: true }));
+        else rejectFirst(new Error("Obsolete manual failure"));
+        await pending;
+      });
+      expect(result.current.isLoading).toBe(false);
+      expect(result.current.flags.cms_content_integrations).toBe(false);
+      expect(result.current.error).toBeNull();
+      await act(() => result.current.refetch());
+      expect(fetch).toHaveBeenCalledTimes(2);
+      expect(fetch.mock.calls[1][1].headers["X-XS-Workspace-Id"]).toBe("workspace-b");
+      expect(result.current.isLoading).toBe(false);
+    },
+  );
 
   it("uses initial flags when provided", async () => {
     render(
@@ -342,11 +550,9 @@ describe("FeatureFlagsProvider", () => {
         expect(screen.getByTestId("loading").textContent).toBe("false");
       });
 
-      const lastCall = (global.fetch as ReturnType<typeof vi.fn>).mock
-        .calls[0];
+      const lastCall = (global.fetch as ReturnType<typeof vi.fn>).mock.calls[0];
       const headers = lastCall?.[1]?.headers as
-        | Record<string, string>
-        | undefined;
+        Record<string, string> | undefined;
       expect(headers).toBeDefined();
       expect(headers && "X-XS-Workspace-Id" in headers).toBe(false);
     });
