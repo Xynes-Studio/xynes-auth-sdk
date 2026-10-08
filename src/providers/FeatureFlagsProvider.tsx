@@ -121,12 +121,14 @@ export function FeatureFlagsProvider({
   });
   // A newer evaluation owns the state, including after workspace switches.
   const requestVersion = useRef(0);
+  const inFlightVersion = useRef<number | null>(null);
 
   /**
    * Fetch flags from the backend
    */
   const fetchFlags = useCallback(async () => {
     const version = ++requestVersion.current;
+    inFlightVersion.current = version;
     try {
       setState((prev) => ({ ...prev, isLoading: true, error: null }));
 
@@ -192,6 +194,8 @@ export function FeatureFlagsProvider({
         isLoading: false,
         error: error instanceof Error ? error : new Error("Unknown error"),
       }));
+    } finally {
+      if (inFlightVersion.current === version) inFlightVersion.current = null;
     }
   }, [
     apiBaseUrl,
@@ -234,16 +238,23 @@ export function FeatureFlagsProvider({
   useEffect(() => {
     if (fetchOnMount) {
       fetchFlags();
+    } else {
+      // A scope change invalidates any manual request without starting another.
+      setState((prev) => ({ ...prev, isLoading: false }));
     }
     return () => {
       requestVersion.current += 1;
+      inFlightVersion.current = null;
     };
   }, [fetchOnMount, fetchFlags]);
 
   // Set up polling if enabled
   useEffect(() => {
     if (pollingInterval > 0) {
-      const interval = setInterval(fetchFlags, pollingInterval);
+      const interval = setInterval(() => {
+        // Slow evaluations must finish before a poll can supersede them.
+        if (inFlightVersion.current === null) void fetchFlags();
+      }, pollingInterval);
       return () => clearInterval(interval);
     }
   }, [pollingInterval, fetchFlags]);

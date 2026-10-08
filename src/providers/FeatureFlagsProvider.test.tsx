@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-import { act, render, screen, waitFor } from "@testing-library/react";
+import { act, render, renderHook, screen, waitFor } from "@testing-library/react";
 import {
   FeatureFlagsProvider,
   useFeatureFlags,
@@ -303,6 +303,101 @@ describe("FeatureFlagsProvider", () => {
     expect(screen.getByTestId("loading").textContent).toBe("false");
     expect(global.fetch).not.toHaveBeenCalled();
   });
+
+  it.each(["success", "error"])(
+    "lets a slow poll finish with %s before starting the next poll",
+    async (result) => {
+      vi.useFakeTimers();
+      let resolveFirst: (response: Response) => void = () => {
+        throw new Error("Request not initialized");
+      };
+      let rejectFirst: (error: Error) => void = () => {
+        throw new Error("Request not initialized");
+      };
+      const first = new Promise<Response>((resolve, reject) => {
+        resolveFirst = resolve;
+        rejectFirst = reject;
+      });
+      const fetch = vi.fn().mockReturnValueOnce(first).mockImplementation(
+        async () => Response.json(mockFlagsResponse),
+      );
+      global.fetch = fetch;
+      vi.spyOn(console, "warn").mockImplementation(() => {});
+      const { unmount } = render(
+        <FeatureFlagsProvider apiBaseUrl="http://localhost:4100" pollingInterval={10}>
+          <TestConsumer />
+        </FeatureFlagsProvider>,
+      );
+      try {
+        await act(() => vi.advanceTimersByTimeAsync(30));
+        expect(fetch).toHaveBeenCalledTimes(1);
+        await act(async () => {
+          if (result === "success") resolveFirst(Response.json(mockFlagsResponse));
+          else rejectFirst(new Error("Slow poll failed"));
+          await first.catch(() => undefined);
+        });
+        expect(screen.getByTestId("loading").textContent).toBe("false");
+        expect(screen.getByTestId("error").textContent).toBe(
+          result === "error" ? "Slow poll failed" : "none",
+        );
+        await act(() => vi.advanceTimersByTimeAsync(10));
+        expect(fetch).toHaveBeenCalledTimes(2);
+        expect(screen.getByTestId("loading").textContent).toBe("false");
+        expect(screen.getByTestId("google").textContent).toBe("true");
+        expect(screen.getByTestId("error").textContent).toBe("none");
+      } finally {
+        unmount();
+        vi.useRealTimers();
+      }
+    },
+  );
+
+  it.each(["success", "error"])(
+    "clears a manual request's loading state on workspace change before its late %s",
+    async (lateResult) => {
+      let resolveFirst: (response: Response) => void = () => {
+        throw new Error("Request not initialized");
+      };
+      let rejectFirst: (error: Error) => void = () => {
+        throw new Error("Request not initialized");
+      };
+      const first = new Promise<Response>((resolve, reject) => {
+        resolveFirst = resolve;
+        rejectFirst = reject;
+      });
+      const fetch = vi.fn().mockReturnValueOnce(first).mockResolvedValueOnce(
+        Response.json({ flags: { cms_content_integrations: false }, authenticated: true }),
+      );
+      global.fetch = fetch;
+      let workspaceId = "workspace-a";
+      const { result, rerender } = renderHook(() => useFeatureFlags(), {
+        wrapper: ({ children }) => (
+          <FeatureFlagsProvider apiBaseUrl="http://localhost:4100" fetchOnMount={false} workspaceId={workspaceId}>
+            {children}
+          </FeatureFlagsProvider>
+        ),
+      });
+      let pending: Promise<void> = Promise.resolve();
+      act(() => { pending = result.current.refetch(); });
+      expect(result.current.isLoading).toBe(true);
+      workspaceId = "workspace-b";
+      rerender();
+      expect(fetch).toHaveBeenCalledTimes(1);
+      expect(result.current.isLoading).toBe(false);
+      await act(async () => {
+        if (lateResult === "success") resolveFirst(Response.json({ flags: { cms_content_integrations: true }, authenticated: true }));
+        else rejectFirst(new Error("Obsolete manual failure"));
+        await pending;
+      });
+      expect(result.current.isLoading).toBe(false);
+      expect(result.current.flags.cms_content_integrations).toBe(false);
+      expect(result.current.error).toBeNull();
+      await act(() => result.current.refetch());
+      expect(fetch).toHaveBeenCalledTimes(2);
+      expect(fetch.mock.calls[1][1].headers["X-XS-Workspace-Id"]).toBe("workspace-b");
+      expect(result.current.isLoading).toBe(false);
+    },
+  );
 
   it("uses initial flags when provided", async () => {
     render(

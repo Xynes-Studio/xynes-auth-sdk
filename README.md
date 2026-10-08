@@ -571,3 +571,9 @@ or unmount, including stale failures. This prevents a slow enabled-workspace
 response from overriding a newer disabled-workspace result. SDK dependency setup
 uses its own `pnpm install --frozen-lockfile`; do not link its test packages from
 another app with a different Vitest version.
+
+Polling skips ticks while the current evaluation is pending, so slow responses
+and failures can complete before the next poll. Explicit `refetch()` still starts
+a new evaluation. With `fetchOnMount={false}`, a scope change invalidates the old
+manual request and clears loading without automatically issuing a replacement;
+call `refetch()` to evaluate the new scope.
